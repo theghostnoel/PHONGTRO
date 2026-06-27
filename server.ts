@@ -2,120 +2,57 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
-
-// Khởi tạo các kiểu dữ liệu
-interface University {
-  id: string;
-  name: string;
-  shortName: string;
-  lat: number;
-  lng: number;
-  address: string;
-}
-
-interface Room {
-  id: string;
-  title: string;
-  price: number;
-  address: string;
-  lat: number;
-  lng: number;
-  image: string;
-  description?: string;
-  phone?: string;
-  zalo?: string;
-  amenities?: string[];
-  gender?: 'Tất cả' | 'Nam' | 'Nữ';
-  area?: number;
-}
-
-// Khởi tạo dữ liệu mặc định
-const INITIAL_UNIVERSITIES: University[] = [
-  {
-    id: 'neu',
-    name: 'Đại học Kinh tế Quốc dân',
-    shortName: 'NEU',
-    lat: 21.0016,
-    lng: 105.8428,
-    address: '207 Giải Phóng, Đồng Tâm, Hai Bà Trưng, Hà Nội',
-  },
-  {
-    id: 'hust',
-    name: 'Đại học Bách Khoa Hà Nội',
-    shortName: 'HUST',
-    lat: 21.0045,
-    lng: 105.8425,
-    address: '1 Đại Cồ Việt, Bách Khoa, Hai Bà Trưng, Hà Nội',
-  },
-  {
-    id: 'vnu',
-    name: 'Đại học Quốc gia Hà Nội',
-    shortName: 'VNU (Cầu Giấy)',
-    lat: 21.0375,
-    lng: 105.7825,
-    address: '144 Xuân Thủy, Dịch Vọng Hậu, Cầu Giấy, Hà Nội',
-  },
-  {
-    id: 'tmu',
-    name: 'Đại học Thương mại',
-    shortName: 'TMU',
-    lat: 21.0392,
-    lng: 105.7692,
-    address: '79 Hồ Tùng Mậu, Mai Dịch, Cầu Giấy, Hà Nội',
-  },
-  {
-    id: 'ptit',
-    name: 'Học viện Công nghệ Bưu chính Viễn thông',
-    shortName: 'PTIT',
-    lat: 20.9801,
-    lng: 105.7876,
-    address: '96A Trần Phú, Mộ Lao, Hà Đông, Hà Nội',
-  },
-  {
-    id: 'hau',
-    name: 'Đại học Kiến trúc Hà Nội',
-    shortName: 'HAU',
-    lat: 20.9818,
-    lng: 105.7855,
-    address: 'Trần Phú, Văn Quán, Hà Đông, Hà Nội',
-  },
-  {
-    id: 'hanu',
-    name: 'Đại học Hà Nội',
-    shortName: 'HANU',
-    lat: 20.9860,
-    lng: 105.7965,
-    address: 'Km 9 Nguyễn Trãi, Trung Văn, Nam Từ Liêm, Hà Nội',
-  },
-  {
-    id: 'tlu',
-    name: 'Đại học Thủy lợi',
-    shortName: 'TLU',
-    lat: 21.0080,
-    lng: 105.8235,
-    address: '175 Tây Sơn, Trung Liệt, Đống Đa, Hà Nội',
-  },
-];
-
-const INITIAL_ROOMS: Room[] = [];
+import { Room, University } from "./src/types";
+import { DEFAULT_ROOMS, UNIVERSITIES } from "./src/data/rooms";
 
 // Khai báo file lưu trữ
 const STORE_PATH = path.join(process.cwd(), "data-store.json");
 
 // Đọc ghi file data
 function loadData(): { rooms: Room[]; universities: University[] } {
+  let loadedRooms: Room[] = [];
+  let loadedUnis: University[] = [];
+
   if (fs.existsSync(STORE_PATH)) {
     try {
       const content = fs.readFileSync(STORE_PATH, "utf-8");
-      return JSON.parse(content);
+      const parsed = JSON.parse(content);
+      loadedRooms = parsed.rooms || [];
+      loadedUnis = parsed.universities || [];
     } catch (e) {
-      console.error("Error reading data-store.json", e);
+      console.error("Error reading data-store.json, initializing from default", e);
+      loadedRooms = [...DEFAULT_ROOMS];
+      loadedUnis = [...UNIVERSITIES];
     }
+  } else {
+    loadedRooms = [...DEFAULT_ROOMS];
+    loadedUnis = [...UNIVERSITIES];
   }
-  // Nếu chưa tồn tại, khởi tạo dữ liệu mặc định
-  const initial = { rooms: INITIAL_ROOMS, universities: INITIAL_UNIVERSITIES };
-  saveData(initial.rooms, initial.universities);
-  return initial;
+
+  // ĐỒNG BỘ HÓA: Đảm bảo tất cả các phòng trọ mặc định và trường đại học luôn tồn tại trong cơ sở dữ liệu
+  let hasChanges = false;
+
+  // Đồng bộ trường đại học
+  UNIVERSITIES.forEach((uni) => {
+    if (!loadedUnis.some((u) => u.id === uni.id)) {
+      loadedUnis.push(uni);
+      hasChanges = true;
+    }
+  });
+
+  // Đồng bộ phòng trọ mặc định
+  DEFAULT_ROOMS.forEach((defaultRoom) => {
+    if (!loadedRooms.some((r) => r.id === defaultRoom.id)) {
+      loadedRooms.push(defaultRoom);
+      hasChanges = true;
+    }
+  });
+
+  if (hasChanges || !fs.existsSync(STORE_PATH)) {
+    saveData(loadedRooms, loadedUnis);
+  }
+
+  return { rooms: loadedRooms, universities: loadedUnis };
 }
 
 function saveData(rooms: Room[], universities: University[]) {
