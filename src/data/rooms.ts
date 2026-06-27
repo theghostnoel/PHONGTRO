@@ -1,0 +1,316 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { Room, University } from '../types';
+
+export const UNIVERSITIES: University[] = [
+  {
+    id: 'neu',
+    name: 'Đại học Kinh tế Quốc dân',
+    shortName: 'NEU',
+    lat: 21.0016,
+    lng: 105.8428,
+    address: '207 Giải Phóng, Đồng Tâm, Hai Bà Trưng, Hà Nội',
+  },
+  {
+    id: 'hust',
+    name: 'Đại học Bách Khoa Hà Nội',
+    shortName: 'HUST',
+    lat: 21.0045,
+    lng: 105.8425,
+    address: '1 Đại Cồ Việt, Bách Khoa, Hai Bà Trưng, Hà Nội',
+  },
+  {
+    id: 'vnu',
+    name: 'Đại học Quốc gia Hà Nội',
+    shortName: 'VNU (Cầu Giấy)',
+    lat: 21.0375,
+    lng: 105.7825,
+    address: '144 Xuân Thủy, Dịch Vọng Hậu, Cầu Giấy, Hà Nội',
+  },
+  {
+    id: 'tmu',
+    name: 'Đại học Thương mại',
+    shortName: 'TMU',
+    lat: 21.0392,
+    lng: 105.7692,
+    address: '79 Hồ Tùng Mậu, Mai Dịch, Cầu Giấy, Hà Nội',
+  },
+  {
+    id: 'ptit',
+    name: 'Học viện Công nghệ Bưu chính Viễn thông',
+    shortName: 'PTIT',
+    lat: 20.9801,
+    lng: 105.7876,
+    address: '96A Trần Phú, Mộ Lao, Hà Đông, Hà Nội',
+  },
+  {
+    id: 'hau',
+    name: 'Đại học Kiến trúc Hà Nội',
+    shortName: 'HAU',
+    lat: 20.9818,
+    lng: 105.7855,
+    address: 'Trần Phú, Văn Quán, Hà Đông, Hà Nội',
+  },
+  {
+    id: 'hanu',
+    name: 'Đại học Hà Nội',
+    shortName: 'HANU',
+    lat: 20.9860,
+    lng: 105.7965,
+    address: 'Km 9 Nguyễn Trãi, Trung Văn, Nam Từ Liêm, Hà Nội',
+  },
+  {
+    id: 'tlu',
+    name: 'Đại học Thủy lợi',
+    shortName: 'TLU',
+    lat: 21.0080,
+    lng: 105.8235,
+    address: '175 Tây Sơn, Trung Liệt, Đống Đa, Hà Nội',
+  },
+];
+
+export const DEFAULT_ROOMS: Room[] = [
+  // Khu vực Bách Khoa - NEU (Hai Bà Trưng)
+  {
+    id: 'LT00035055',
+    title: 'Phòng trọ khép kín AT 74 Phú Mỹ - Studio',
+    price: 2700000,
+    address: '74 Đ. Phú Mỹ, Mỹ Đình 2, Nam Từ Liêm, Hà Nội',
+    lat: 21.0322,
+    lng: 105.7745,
+    image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600&auto=format&fit=crop&q=60',
+    description: 'Phòng studio khép kín, đầy đủ nội thất cơ bản, có điều hòa, nóng lạnh, máy giặt chung, giờ giấc tự do, khóa vân tay an toàn, phù hợp cho 1-2 sinh viên học tập làm việc.',
+    phone: '0987654321',
+    zalo: '0987654321',
+    amenities: ['Điều hòa', 'Nóng lạnh', 'Wifi', 'Máy giặt', 'Khóa vân tay', 'Tự do'],
+    gender: 'Tất cả',
+    area: 25,
+  },
+  {
+    id: 'LT00100452',
+    title: 'Căn hộ mini Trần Đại Nghĩa - Tiện nghi 20m2',
+    price: 3500000,
+    address: 'Ngõ 259 Trần Đại Nghĩa, Đồng Tâm, Hai Bà Trưng, Hà Nội',
+    lat: 21.0035,
+    lng: 105.8445,
+    image: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600&auto=format&fit=crop&q=60',
+    description: 'Vị trí cực kỳ đắc địa, sát vách ĐH Kinh tế Quốc dân và Bách Khoa. Phòng thiết kế cực xinh, tủ quần áo âm tường, bàn học thông minh, bếp ga có máy hút mùi, cửa sổ lớn đón nắng tự nhiên.',
+    phone: '0912345678',
+    zalo: '0912345678',
+    amenities: ['Điều hòa', 'Nóng lạnh', 'Wifi', 'Giường đệm', 'Tủ quần áo', 'Bếp riêng', 'Ban công'],
+    gender: 'Tất cả',
+    area: 20,
+  },
+  {
+    id: 'LT00201560',
+    title: 'Phòng trọ sinh viên giá rẻ Tạ Quang Bửu',
+    price: 2200000,
+    address: 'Số 15 Ngõ 109 Tạ Quang Bửu, Bách Khoa, Hai Bà Trưng, Hà Nội',
+    lat: 21.0052,
+    lng: 105.8410,
+    image: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=600&auto=format&fit=crop&q=60',
+    description: 'Phòng khép kín sạch sẽ, nằm trong khu tập thể Bách Khoa, cực kỳ yên tĩnh và an ninh. Đầy đủ nóng lạnh, giường, quạt trần, điện nước tính giá dân. Đi bộ sang HUST chưa đầy 3 phút.',
+    phone: '0966778899',
+    zalo: '0966778899',
+    amenities: ['Nóng lạnh', 'Wifi', 'Giường đệm', 'Giá dân', 'An ninh'],
+    gender: 'Tất cả',
+    area: 18,
+  },
+  {
+    id: 'LT00302488',
+    title: 'Chung cư mini cao cấp Phố Vọng - Full đồ gác lửng',
+    price: 4200000,
+    address: 'Số 188 Phố Vọng, Đồng Tâm, Hai Bà Trưng, Hà Nội',
+    lat: 20.9982,
+    lng: 105.8428,
+    image: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=600&auto=format&fit=crop&q=60',
+    description: 'Phòng có gác lửng thông minh giúp nhân đôi diện tích sử dụng. Đầy đủ tủ lạnh, điều hòa inverter tiết kiệm điện, sofa nhỏ tiếp khách, bếp nấu riêng biệt ngoài ban công không lo ám mùi.',
+    phone: '0944332211',
+    zalo: '0944332211',
+    amenities: ['Điều hòa', 'Nóng lạnh', 'Wifi', 'Máy giặt', 'Tủ lạnh', 'Gác lửng', 'Sofa', 'Tự do'],
+    gender: 'Tất cả',
+    area: 28,
+  },
+  {
+    id: 'LT00403120',
+    title: 'Phòng trọ khép kín Giải Phóng - Ban công rộng thoáng',
+    price: 2800000,
+    address: 'Ngõ 354 Giải Phóng, Phương Liệt, Thanh Xuân, Hà Nội',
+    lat: 21.0002,
+    lng: 105.8390,
+    image: 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=600&auto=format&fit=crop&q=60',
+    description: 'Phòng trọ tầng 3 trong nhà 5 tầng không chung chủ. Có ban công siêu rộng phơi đồ đón gió, phòng vệ sinh riêng khép kín sạch đẹp. Ngõ rộng hai ô tô tránh nhau thoải mái.',
+    phone: '0355667788',
+    zalo: '0355667788',
+    amenities: ['Điều hòa', 'Nóng lạnh', 'Wifi', 'Ban công', 'Tự do', 'Để xe tầng 1'],
+    gender: 'Nữ',
+    area: 22,
+  },
+
+  // Khu vực Cầu Giấy - Xuân Thủy (VNU)
+  {
+    id: 'LT00511220',
+    title: 'Studio Duplex gác lửng mới đét Xuân Thủy - Cầu Giấy',
+    price: 3900000,
+    address: 'Ngõ 175 Xuân Thủy, Dịch Vọng Hậu, Cầu Giấy, Hà Nội',
+    lat: 21.0365,
+    lng: 105.7808,
+    image: 'https://images.unsplash.com/photo-1554995207-c18c203602cb?w=600&auto=format&fit=crop&q=60',
+    description: 'Phòng dạng duplex mới xây xong tháng trước, nội thất tông trắng-gỗ cực sang chảnh phong cách Bắc Âu. Gần ngay ngã tư Xuân Thủy, giao thông thuận tiện đi các trường Sư Phạm, Quốc Gia, Báo Chí.',
+    phone: '0977889900',
+    zalo: '0977889900',
+    amenities: ['Điều hòa', 'Nóng lạnh', 'Wifi', 'Máy giặt riêng', 'Tủ lạnh', 'Thang máy', 'Gác lửng'],
+    gender: 'Tất cả',
+    area: 30,
+  },
+  {
+    id: 'LT00622330',
+    title: 'Phòng khép kín đầy đủ đồ Hồ Tùng Mậu sát ĐH Thương Mại',
+    price: 2600000,
+    address: 'Ngõ 105 Hồ Tùng Mậu, Mai Dịch, Cầu Giấy, Hà Nội',
+    lat: 21.0385,
+    lng: 105.7725,
+    image: 'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?w=600&auto=format&fit=crop&q=60',
+    description: 'Phòng xinh xắn, an ninh tuyệt đối có camera giám sát 24/7. Nhà có thang máy, chỗ để xe rộng rãi miễn phí tầng 1, chỉ cách trường Đại học Thương Mại 150m, chợ dân sinh ngay đầu ngõ.',
+    phone: '0888999777',
+    zalo: '0888999777',
+    amenities: ['Điều hòa', 'Nóng lạnh', 'Wifi', 'Giường đệm', 'Thang máy', 'Camera 24/7'],
+    gender: 'Tất cả',
+    area: 22,
+  },
+  {
+    id: 'LT00733440',
+    title: 'Phòng trọ giá rẻ cho nam Trần Quốc Hoàn',
+    price: 2000000,
+    address: 'Ngõ 58 Trần Quốc Hoàn, Dịch Vọng Hậu, Cầu Giấy, Hà Nội',
+    lat: 21.0415,
+    lng: 105.7845,
+    image: 'https://images.unsplash.com/photo-1536376072261-38c75010e6c9?w=600&auto=format&fit=crop&q=60',
+    description: 'Phòng trọ bình dân tầng 2 cực mát, vệ sinh chung với 1 phòng khác sạch sẽ hàng ngày. Thích hợp cho các bạn nam sinh viên muốn tiết kiệm chi phí học tập tại khu vực Cầu Giấy năng động.',
+    phone: '0933445566',
+    zalo: '0933445566',
+    amenities: ['Wifi', 'Giường đệm', 'Để xe tầng 1', 'Giá rẻ'],
+    gender: 'Nam',
+    area: 16,
+  },
+  {
+    id: 'LT00844550',
+    title: 'Căn hộ dịch vụ Nguyễn Phong Sắc - View hồ điều hòa',
+    price: 4500000,
+    address: 'Số 45 Nguyễn Phong Sắc, Dịch Vọng, Cầu Giấy, Hà Nội',
+    lat: 21.0428,
+    lng: 105.7895,
+    image: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?w=600&auto=format&fit=crop&q=60',
+    description: 'Căn hộ cao cấp view trọn công viên và hồ Nghĩa Đô. Full tiện nghi cực sang trọng: Tivi thông minh, máy giặt sấy riêng, sofa êm ái, bảo vệ trực 24h, cực thích hợp cho người đi làm hoặc sinh viên có điều kiện.',
+    phone: '0909090909',
+    zalo: '0909090909',
+    amenities: ['Điều hòa', 'Nóng lạnh', 'Wifi', 'Máy giặt', 'Tủ lạnh', 'Sofa', 'Tivi', 'Bảo vệ', 'Thang máy'],
+    gender: 'Tất cả',
+    area: 35,
+  },
+
+  // Khu vực Hà Đông - Ao Sen - Thanh Xuân (PTIT - HAU)
+  {
+    id: 'LT00955660',
+    title: 'Căn hộ mini siêu cute ngõ Ao Sen - Sát PTIT & Kiến Trúc',
+    price: 3000000,
+    address: 'Số 12 Ngõ 4 Ao Sen, Mộ Lao, Hà Đông, Hà Nội',
+    lat: 20.9810,
+    lng: 105.7865,
+    image: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=600&auto=format&fit=crop&q=60',
+    description: 'Địa điểm tụ tập ăn uống sầm uất nhất Hà Đông! Phòng khép kín đầy đủ tiện ích cơ bản, có kệ bếp xinh xắn nấu nướng cực tiện. Chỉ cần đi bộ vài phút là tới PTIT, Kiến Trúc, Công Nghệ Giao Thông Vận Tải.',
+    phone: '0911223344',
+    zalo: '0911223344',
+    amenities: ['Điều hòa', 'Nóng lạnh', 'Wifi', 'Kệ bếp', 'Giường đệm', 'Tự do'],
+    gender: 'Tất cả',
+    area: 21,
+  },
+  {
+    id: 'LT01066770',
+    title: 'Phòng trọ cao cấp Trần Phú Hà Đông - Cửa sổ panorama',
+    price: 3300000,
+    address: 'Số 210 Trần Phú, Mộ Lao, Hà Đông, Hà Nội',
+    lat: 20.9782,
+    lng: 105.7892,
+    image: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=600&auto=format&fit=crop&q=60',
+    description: 'Phòng có cửa sổ kính panorama siêu lớn nhìn thẳng ra đường tàu điện trên cao Cát Linh - Hà Đông. Hệ thống ánh sáng thông minh hiện đại, full giường tủ bằng gỗ MDF sang trọng chống ẩm mốc.',
+    phone: '0922334455',
+    zalo: '0922334455',
+    amenities: ['Điều hòa', 'Nóng lạnh', 'Wifi', 'Giường tủ gỗ', 'Cửa sổ lớn', 'Thang máy', 'Khóa vân tay'],
+    gender: 'Tất cả',
+    area: 24,
+  },
+  {
+    id: 'LT01177880',
+    title: 'Phòng trọ bình dân Phùng Hưng - Gần Học viện Quân Y',
+    price: 1800000,
+    address: 'Ngõ 160 Phùng Hưng, Phúc La, Hà Đông, Hà Nội',
+    lat: 20.9715,
+    lng: 105.7942,
+    image: 'https://images.unsplash.com/photo-1598928506311-c55ded91a20c?w=600&auto=format&fit=crop&q=60',
+    description: 'Phòng trọ giá sinh viên, vệ sinh khép kín, sạch sẽ, thoáng mát. Chủ nhà cực kỳ thân thiện, hỗ trợ tối đa cho sinh viên năm nhất nhập học. Điện nước giá nhà nước cực rẻ.',
+    phone: '0944556677',
+    zalo: '0944556677',
+    amenities: ['Wifi', 'Giường đệm', 'Giá nước dân', 'Thân thiện'],
+    gender: 'Tất cả',
+    area: 17,
+  },
+  {
+    id: 'LT01288990',
+    title: 'Chung cư mini Chiến Thắng - Studio tiện nghi cho nữ',
+    price: 2900000,
+    address: 'Số 82 Chiến Thắng, Văn Quán, Hà Đông, Hà Nội',
+    lat: 20.9840,
+    lng: 105.7950,
+    image: 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600&auto=format&fit=crop&q=60',
+    description: 'Phòng trọ dành riêng cho nữ tại khu đô thị Văn Quán xanh mát. Khu vực an ninh cực tốt, cổng chung vân tay, ban công đón nắng hướng Đông Nam rất phong thủy và mát mẻ.',
+    phone: '0955667788',
+    zalo: '0955667788',
+    amenities: ['Điều hòa', 'Nóng lạnh', 'Wifi', 'Khóa vân tay', 'Chỉ cho nữ', 'Ban công mát'],
+    gender: 'Nữ',
+    area: 20,
+  }
+];
+
+// Công thức Haversine tính khoảng cách giữa 2 điểm (vĩ độ, kinh độ) tính bằng mét
+export function getDistance(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371e3; // Bán kính Trái Đất (mét)
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+  const deltaLng = ((lng2 - lng1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLng / 2) * Math.sin(deltaLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return Math.round(R * c); // trả về khoảng cách tính bằng mét
+}
+
+// Lưu trữ & Truy xuất từ localStorage để Admin CRUD hoạt động bền vững
+export function getSavedRooms(): Room[] {
+  try {
+    const saved = localStorage.getItem('hanoi_rooms_data');
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (error) {
+    console.error('Lỗi đọc dữ liệu từ localStorage:', error);
+  }
+  
+  // Nếu chưa có, lưu mặc định và trả về
+  saveRooms(DEFAULT_ROOMS);
+  return DEFAULT_ROOMS;
+}
+
+export function saveRooms(rooms: Room[]): void {
+  try {
+    localStorage.setItem('hanoi_rooms_data', JSON.stringify(rooms));
+  } catch (error) {
+    console.error('Lỗi lưu dữ liệu vào localStorage:', error);
+  }
+}

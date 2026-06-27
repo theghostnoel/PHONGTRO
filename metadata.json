@@ -1,0 +1,6 @@
+{
+  "name": "Tìm Phòng Trọ Hà Nội",
+  "description": "Ứng dụng tìm kiếm phòng trọ sinh viên quanh các trường Đại học lớn tại Hà Nội tích hợp bản đồ Leaflet trực quan và bảng quản trị Admin CRUD.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
