@@ -12,6 +12,7 @@ interface RoomDetailModalProps {
 
 export default function RoomDetailModal({ room, isOpen, onClose, isAdminLoggedIn, onEditRoom }: RoomDetailModalProps) {
   const [copied, setCopied] = React.useState(false);
+  const [syntaxCopied, setSyntaxCopied] = React.useState(false);
   const [activeImageIndex, setActiveImageIndex] = React.useState(0);
 
   // Trực quan hóa danh sách ảnh (ưu tiên dùng danh sách ảnh thực tế được admin tải lên)
@@ -57,16 +58,19 @@ export default function RoomDetailModal({ room, isOpen, onClose, isAdminLoggedIn
 
   if (!isOpen || !room) return null;
 
+  const priceFormatted = room.priceMax && room.priceMax > room.price
+    ? `${room.price.toLocaleString('vi-VN')} - ${room.priceMax.toLocaleString('vi-VN')}`
+    : room.price.toLocaleString('vi-VN');
+
   const handleShare = () => {
-    const priceFormatted = room.priceMax && room.priceMax > room.price
-      ? `${room.price.toLocaleString('vi-VN')} - ${room.priceMax.toLocaleString('vi-VN')}`
-      : room.price.toLocaleString('vi-VN');
-    const text = `Phòng trọ: ${room.title}\nGiá: ${priceFormatted} đ/tháng\nĐịa chỉ: ${room.address}\nLiên hệ: ${room.phone || 'N/A'}`;
+    const text = `Tôi muốn hỏi thuê phòng trọ:\n- Mã phòng: ${room.id}\n- Tên phòng: ${room.title}\n- Địa chỉ: ${room.address}\n- Giá thuê: ${priceFormatted} đ/tháng\n(Liên hệ qua UniStay)`;
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
   };
+
+  const syntaxText = `${room.id} - ${room.address} - ${priceFormatted} đ/tháng`;
 
   return (
     <div 
@@ -202,6 +206,41 @@ export default function RoomDetailModal({ room, isOpen, onClose, isAdminLoggedIn
             {/* Thông tin liên hệ & Chia sẻ */}
             <div className="pt-4 border-t border-slate-100 space-y-4">
               <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Thông tin liên hệ chủ nhà</h3>
+              
+              {/* Box Hướng dẫn cú pháp Zalo */}
+              <div className="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-4 space-y-3 animate-fade-in">
+                <div className="flex items-start gap-2.5">
+                  <span className="text-lg leading-none mt-0.5 select-none">💡</span>
+                  <div className="space-y-1">
+                    <p className="text-xs font-extrabold text-indigo-900 uppercase tracking-wide">Cú pháp nhắn tin Zalo mẫu</p>
+                    <p className="text-[11px] font-medium text-indigo-700/90 leading-relaxed">
+                      Để được phản hồi nhanh nhất, bạn vui lòng sao chép cú pháp <span className="font-bold underline">Mã phòng + Địa chỉ + Giá thuê</span> bên dưới và gửi khi liên hệ qua Zalo cho chủ nhà nhé:
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2 bg-white border border-indigo-100 rounded-xl p-2.5 pl-3.5 shadow-sm">
+                  <code className="text-xs font-mono font-bold text-indigo-600 truncate flex-1 select-all" title={syntaxText}>
+                    {syntaxText}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(syntaxText);
+                      setSyntaxCopied(true);
+                      setTimeout(() => setSyntaxCopied(false), 2000);
+                    }}
+                    className={`px-3 py-1.5 text-[10px] font-extrabold rounded-lg transition-all cursor-pointer shadow-sm select-none shrink-0 ${
+                      syntaxCopied 
+                        ? 'bg-emerald-600 text-white shadow-emerald-100' 
+                        : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-100'
+                    }`}
+                  >
+                    {syntaxCopied ? 'Đã sao chép!' : 'Sao chép cú pháp'}
+                  </button>
+                </div>
+              </div>
+
               <div className="w-full">
                 <a
                   href={room.zalo && (room.zalo.startsWith('http') || room.zalo.includes('zalo.me')) ? room.zalo : `https://zalo.me/${room.zalo || room.phone || '0987654321'}`}
