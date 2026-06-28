@@ -96,16 +96,39 @@ export function subscribeUniversities(callback: (universities: University[]) => 
   });
 }
 
+// Hàm dọn dẹp các trường mang giá trị undefined để tránh lỗi Firestore từ chối ghi nhận dữ liệu
+function sanitizeData<T>(obj: T): T {
+  if (obj === null || obj === undefined) return obj;
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeData) as unknown as T;
+  }
+  if (typeof obj === "object") {
+    const clean: any = {};
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        const val = obj[key];
+        if (val !== undefined) {
+          clean[key] = sanitizeData(val);
+        }
+      }
+    }
+    return clean as T;
+  }
+  return obj;
+}
+
 // 3. Thêm mới phòng trọ
 export async function addRoomToFirebase(room: Room): Promise<void> {
   const roomRef = doc(db, "rooms", room.id);
-  await setDoc(roomRef, room);
+  const cleanRoom = sanitizeData(room);
+  await setDoc(roomRef, cleanRoom);
 }
 
 // 4. Cập nhật phòng trọ
 export async function updateRoomInFirebase(room: Room): Promise<void> {
   const roomRef = doc(db, "rooms", room.id);
-  await setDoc(roomRef, room);
+  const cleanRoom = sanitizeData(room);
+  await setDoc(roomRef, cleanRoom);
 }
 
 // 5. Xóa phòng trọ
@@ -117,7 +140,8 @@ export async function deleteRoomFromFirebase(roomId: string): Promise<void> {
 // 6. Thêm mới trường đại học
 export async function addUniversityToFirebase(uni: University): Promise<void> {
   const uniRef = doc(db, "universities", uni.id);
-  await setDoc(uniRef, uni);
+  const cleanUni = sanitizeData(uni);
+  await setDoc(uniRef, cleanUni);
 }
 
 // 7. Xóa trường đại học
