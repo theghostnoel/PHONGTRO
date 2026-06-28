@@ -35,29 +35,61 @@ export default function AdminLogin({ isOpen, onClose, onLoginSuccess }: AdminLog
         body: JSON.stringify({ username, password }),
       });
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setSuccess(true);
+          // Lưu token xác thực vào localStorage để giữ phiên đăng nhập
+          localStorage.setItem('admin_session_token', data.token);
+          setTimeout(() => {
+            onLoginSuccess();
+            onClose();
+            // Reset form
+            setUsername('');
+            setPassword('');
+            setSuccess(false);
+            setIsSubmitting(false);
+          }, 1200);
+        } else {
+          setError(data.message || 'Tên đăng nhập hoặc mật khẩu không chính xác!');
+          setIsSubmitting(false);
+        }
+      } else {
+        // Nếu server trả lỗi (404/500) hoặc không có endpoint, chạy fallback client
+        if (username === "clone1phobo@gmail.com" && password === "nguyen2000") {
+          setSuccess(true);
+          localStorage.setItem('admin_session_token', 'admin_verified_token_9932');
+          setTimeout(() => {
+            onLoginSuccess();
+            onClose();
+            setUsername('');
+            setPassword('');
+            setSuccess(false);
+            setIsSubmitting(false);
+          }, 1200);
+        } else {
+          setError('Tên đăng nhập hoặc mật khẩu không chính xác!');
+          setIsSubmitting(false);
+        }
+      }
+    } catch (err) {
+      console.error('Lỗi kết nối server đăng nhập, sử dụng fallback client:', err);
+      // Fallback khi mất kết nối hoàn toàn hoặc chạy tĩnh trên Vercel
+      if (username === "clone1phobo@gmail.com" && password === "nguyen2000") {
         setSuccess(true);
-        // Lưu token xác thực vào localStorage để giữ phiên đăng nhập
-        localStorage.setItem('admin_session_token', data.token);
+        localStorage.setItem('admin_session_token', 'admin_verified_token_9932');
         setTimeout(() => {
           onLoginSuccess();
           onClose();
-          // Reset form
           setUsername('');
           setPassword('');
           setSuccess(false);
           setIsSubmitting(false);
         }, 1200);
       } else {
-        setError(data.message || 'Tên đăng nhập hoặc mật khẩu không chính xác!');
+        setError('Tên đăng nhập hoặc mật khẩu không chính xác!');
         setIsSubmitting(false);
       }
-    } catch (err) {
-      console.error('Lỗi kết nối server đăng nhập:', err);
-      setError('Không thể kết nối tới máy chủ. Vui lòng thử lại sau!');
-      setIsSubmitting(false);
     }
   };
 

@@ -20,7 +20,77 @@ interface AdminDashboardProps {
   onDeleteRoom: (roomId: string) => void;
   onSelectRoomOnMap: (room: Room) => void;
   universities: University[];
-  onAddUniversity: (uni: University) => void;
+  onAddUniversity: (uni: University) => Promise<{ success: boolean; message?: string }> | any;
+}
+
+// Hàm phân tích và dọn dẹp địa chỉ để tạo danh sách các chuỗi tìm kiếm từ chi tiết đến tổng quát cho OSM Nominatim
+export function getGeocodeQueries(addressText: string): string[] {
+  const queries: string[] = [];
+  const raw = addressText.trim();
+  if (!raw) return queries;
+
+  // Đảm bảo có Hà Nội cuối câu
+  const withHaNoi = raw.toLowerCase().includes("hà nội") ? raw : `${raw}, Hà Nội`;
+  queries.push(withHaNoi);
+
+  // Hàm dọn dẹp các đơn vị hành chính gây khó khăn cho OSM Nominatim
+  const cleanAdminUnits = (s: string) => {
+    return s
+      .replace(/(?:phường|p\.)\s+/gi, '')
+      .replace(/(?:quận|q\.)\s+/gi, '')
+      .replace(/(?:thành phố|tp\.)\s+/gi, '')
+      .replace(/(?:thị xã|tx\.)\s+/gi, '')
+      .replace(/(?:thị trấn|tt\.)\s+/gi, '')
+      .replace(/(?:đường|đ\.)\s+/gi, '')
+      .replace(/(?:phố)\s+/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  const cleanedBase = cleanAdminUnits(withHaNoi);
+  if (cleanedBase && cleanedBase !== withHaNoi) {
+    queries.push(cleanedBase);
+  }
+
+  // Tách các thành phần bằng dấu phẩy
+  const parts = raw.split(',').map(p => p.trim()).filter(Boolean);
+  
+  // Thử rút ngắn bằng cách bỏ số nhà/ngõ ngách ở phần đầu tiên (nếu có số nhà)
+  if (parts.length > 0) {
+    const firstPart = parts[0];
+    const firstPartCleaned = firstPart
+      .replace(/^\d+[\/\d]*\s+/, '')
+      .replace(/(?:ngõ|ngách|hẻm)\s+\d+[\/\d]*\s+/, '');
+    if (firstPartCleaned && firstPartCleaned !== firstPart) {
+      const simplifiedParts = [firstPartCleaned, ...parts.slice(1)];
+      const simplifiedAddress = simplifiedParts.join(', ');
+      const simplifiedWithHaNoi = simplifiedAddress.toLowerCase().includes("hà nội") ? simplifiedAddress : `${simplifiedAddress}, Hà Nội`;
+      queries.push(simplifiedWithHaNoi);
+      
+      const cleanedSimplified = cleanAdminUnits(simplifiedWithHaNoi);
+      if (cleanedSimplified) {
+        queries.push(cleanedSimplified);
+      }
+    }
+  }
+
+  // Thử lấy các phần sau (bỏ dần phần đầu tiên, ví dụ bỏ số nhà + tên đường, lấy phường quận)
+  if (parts.length > 1) {
+    for (let i = 1; i < parts.length; i++) {
+      const subAddress = parts.slice(i).join(', ');
+      const subWithHaNoi = subAddress.toLowerCase().includes("hà nội") ? subAddress : `${subAddress}, Hà Nội`;
+      if (!queries.includes(subWithHaNoi)) {
+        queries.push(subWithHaNoi);
+      }
+      const cleanedSub = cleanAdminUnits(subWithHaNoi);
+      if (cleanedSub && !queries.includes(cleanedSub)) {
+        queries.push(cleanedSub);
+      }
+    }
+  }
+
+  // Lọc trùng và trả về danh sách truy vấn tối đa 10 cái
+  return Array.from(new Set(queries)).filter(q => q.length > 4).slice(0, 10);
 }
 
 export default function AdminDashboard({
@@ -352,36 +422,7 @@ export default function AdminDashboard({
     setFormError('');
     setGeocodeSuccessMsg('');
     
-    // Tạo danh sách các chuỗi tìm kiếm từ chi tiết đến tổng quát để tăng khả năng thành công
-    const searchQueries: string[] = [];
-    
-    // 1. Địa chỉ gốc
-    const cleanAddress = address.trim();
-    searchQueries.push(cleanAddress.includes('Hà Nội') ? cleanAddress : `${cleanAddress}, Hà Nội`);
-    
-    // 2. Thử loại bỏ số nhà chi tiết (ví dụ: "74 Đ. Phú Mỹ..." -> "Đường Phú Mỹ...") hoặc rút ngắn bằng dấu phẩy
-    const parts = cleanAddress.split(',').map(p => p.trim()).filter(Boolean);
-    if (parts.length > 1) {
-      const shortened = parts.slice(1).join(', ');
-      searchQueries.push(shortened.includes('Hà Nội') ? shortened : `${shortened}, Hà Nội`);
-    }
-
-    // 3. Thử tìm kiếm theo tên đường/phố chính (nếu có chữ "Đường" hoặc "Đ." hoặc "Phố" hoặc "Ngõ")
-    const streetMatch = cleanAddress.match(/(?:Đ\.|Đường|Phố|Ngõ)\s+([^,]+)/i);
-    if (streetMatch && streetMatch[1]) {
-      const streetQuery = `${streetMatch[1].trim()}, Hà Nội`;
-      if (!searchQueries.includes(streetQuery)) {
-        searchQueries.push(streetQuery);
-      }
-    }
-
-    // 4. Thử tìm kiếm theo Phường/Quận
-    if (parts.length >= 2) {
-      const wardAndDistrict = parts.slice(Math.max(0, parts.length - 3)).join(', ');
-      if (!searchQueries.includes(wardAndDistrict)) {
-        searchQueries.push(wardAndDistrict);
-      }
-    }
+    const searchQueries = getGeocodeQueries(address);
 
     let found = false;
     for (const query of searchQueries) {
@@ -394,7 +435,7 @@ export default function AdminDashboard({
           setLat(Number(foundLat.toFixed(6)));
           setLng(Number(foundLng.toFixed(6)));
           setFormError('');
-          setGeocodeSuccessMsg(`✅ Đã tìm thấy tọa độ tự động: Vĩ độ ${foundLat.toFixed(6)}, Kinh độ ${foundLng.toFixed(6)}!`);
+          setGeocodeSuccessMsg(`✅ Đã định vị thành công bằng từ khóa "${query}": Vĩ độ ${foundLat.toFixed(6)}, Kinh độ ${foundLng.toFixed(6)}!`);
           found = true;
           break; // Tìm thấy thì dừng lại
         }
@@ -406,7 +447,7 @@ export default function AdminDashboard({
     setIsGettingRoomCoords(false);
 
     if (!found) {
-      setFormError('Không thể tự động định vị vị trí này. Vui lòng tự nhấp ghim trên bản đồ nhỏ ở dưới hoặc điền tay vĩ độ/kinh độ!');
+      setFormError('Không thể tự động định vị vị trí này. Vui lòng thử viết lại địa chỉ ngắn gọn (bỏ số nhà/ngõ ngách) hoặc tự ghim trên bản đồ nhỏ dưới đây!');
     }
   };
 
@@ -1222,25 +1263,63 @@ export default function AdminDashboard({
 
                   <button
                     type="button"
-                    disabled={isGettingCoords || !uniAddress.trim()}
+                    disabled={isGettingCoords || (!uniAddress.trim() && !uniName.trim())}
                     onClick={async () => {
                       setIsGettingCoords(true);
                       setUniError('');
-                      try {
-                        const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(uniAddress + ', Hà Nội')}&format=json&limit=1`);
-                        const data = await res.json();
-                        if (data && data.length > 0) {
-                          setUniLat(parseFloat(data[0].lat));
-                          setUniLng(parseFloat(data[0].lon));
-                          setUniSuccess('Lấy tọa độ tự động thành công!');
-                          setTimeout(() => setUniSuccess(''), 3000);
-                        } else {
-                          setUniError('Không tìm thấy tọa độ cho địa chỉ này. Vui lòng nhập tay!');
+                      setUniSuccess('');
+                      
+                      const searchQueries: string[] = [];
+                      const cleanName = uniName.trim();
+                      const cleanShortName = uniShortName.trim();
+                      const cleanAddress = uniAddress.trim();
+                      
+                      // 1. Thử tìm theo tên trường đại học đầy đủ (khả năng trúng cao nhất trên OSM)
+                      if (cleanName) {
+                        searchQueries.push(cleanName.toLowerCase().includes("hà nội") ? cleanName : `${cleanName}, Hà Nội`);
+                        const noTrương = cleanName.replace(/^(?:Trường\s+)/i, '');
+                        if (noTrương !== cleanName) {
+                          searchQueries.push(noTrương.toLowerCase().includes("hà nội") ? noTrương : `${noTrương}, Hà Nội`);
                         }
-                      } catch (err) {
-                        setUniError('Không thể kết nối API định vị. Vui lòng tự nhập tọa độ!');
-                      } finally {
-                        setIsGettingCoords(false);
+                      }
+                      
+                      // 2. Thử tìm theo tên viết tắt
+                      if (cleanShortName) {
+                        searchQueries.push(`Đại học ${cleanShortName}, Hà Nội`);
+                        searchQueries.push(`${cleanShortName}, Hà Nội`);
+                      }
+                      
+                      // 3. Thử tìm theo danh sách địa chỉ fallback thông minh
+                      if (cleanAddress) {
+                        const addressQueries = getGeocodeQueries(cleanAddress);
+                        searchQueries.push(...addressQueries);
+                      }
+                      
+                      const uniqueQueries = Array.from(new Set(searchQueries.map(q => q.trim()))).filter(q => q.length > 2);
+                      
+                      let found = false;
+                      for (const query of uniqueQueries) {
+                        try {
+                          const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`);
+                          const data = await res.json();
+                          if (data && data.length > 0) {
+                            const foundLat = parseFloat(data[0].lat);
+                            const foundLng = parseFloat(data[0].lon);
+                            setUniLat(Number(foundLat.toFixed(6)));
+                            setUniLng(Number(foundLng.toFixed(6)));
+                            setUniSuccess(`✅ Định vị thành công bằng từ khóa "${query}"!`);
+                            setTimeout(() => setUniSuccess(''), 4000);
+                            found = true;
+                            break;
+                          }
+                        } catch (err) {
+                          console.warn(`Lỗi tìm trường với từ khóa "${query}":`, err);
+                        }
+                      }
+                      
+                      setIsGettingCoords(false);
+                      if (!found) {
+                        setUniError('Không thể tự động tìm tọa độ cho trường này. Vui lòng tự điền tay tọa độ (Vĩ độ / Kinh độ)!');
                       }
                     }}
                     className="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
@@ -1279,14 +1358,15 @@ export default function AdminDashboard({
 
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
                       setUniError('');
                       setUniSuccess('');
                       if (!uniName.trim() || !uniShortName.trim() || !uniAddress.trim() || uniLat === '' || uniLng === '') {
                         setUniError('Vui lòng nhập đầy đủ các thông tin và tọa độ!');
                         return;
                       }
-                      onAddUniversity({
+                      
+                      const result = await onAddUniversity({
                         id: uniShortName.toLowerCase().trim().replace(/\s+/g, '_'),
                         name: uniName.trim(),
                         shortName: uniShortName.trim().toUpperCase(),
@@ -1294,14 +1374,19 @@ export default function AdminDashboard({
                         lng: Number(uniLng),
                         address: uniAddress.trim()
                       });
-                      setUniSuccess('Thêm trường đại học mới thành công!');
-                      // Reset form
-                      setUniName('');
-                      setUniShortName('');
-                      setUniAddress('');
-                      setUniLat('');
-                      setUniLng('');
-                      setTimeout(() => setUniSuccess(''), 3000);
+                      
+                      if (result && result.success) {
+                        setUniSuccess('Thêm trường đại học mới thành công!');
+                        // Reset form
+                        setUniName('');
+                        setUniShortName('');
+                        setUniAddress('');
+                        setUniLat('');
+                        setUniLng('');
+                        setTimeout(() => setUniSuccess(''), 3000);
+                      } else {
+                        setUniError(result?.message || 'Có lỗi xảy ra khi thêm trường đại học!');
+                      }
                     }}
                     className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-xl text-xs shadow-md shadow-indigo-100 hover:shadow-indigo-200 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                   >

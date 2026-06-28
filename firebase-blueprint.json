@@ -1,0 +1,48 @@
+{
+  "entities": {
+    "Room": {
+      "title": "Room",
+      "description": "Room description and location details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier of the room" },
+        "name": { "type": "string", "description": "Title or name of the room" },
+        "address": { "type": "string", "description": "Detailed address" },
+        "price": { "type": "number", "description": "Monthly rent price in VND" },
+        "area": { "type": "number", "description": "Room area in square meters" },
+        "lat": { "type": "number", "description": "Latitude coordinate" },
+        "lng": { "type": "number", "description": "Longitude coordinate" },
+        "phone": { "type": "string", "description": "Contact phone number" },
+        "description": { "type": "string", "description": "Additional details about the room" },
+        "images": { "type": "array", "description": "List of room image URLs" },
+        "type": { "type": "string", "description": "Type of room (Chung cư mini, Kí túc xá, Phòng trọ...)" },
+        "utilities": { "type": "array", "description": "List of amenities (wifi, aircon, etc.)" }
+      },
+      "required": ["id", "name", "address", "price", "area", "lat", "lng"]
+    },
+    "University": {
+      "title": "University",
+      "description": "University location details for distance search",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ID or acronym of the university" },
+        "name": { "type": "string", "description": "Full name of the university" },
+        "shortName": { "type": "string", "description": "Short name or abbreviation" },
+        "address": { "type": "string", "description": "Address of the campus" },
+        "lat": { "type": "number", "description": "Latitude coordinate" },
+        "lng": { "type": "number", "description": "Longitude coordinate" }
+      },
+      "required": ["id", "name", "shortName", "address", "lat", "lng"]
+    }
+  },
+  "firestore": {
+    "rooms/{roomId}": {
+      "schema": "Room",
+      "description": "Collection of all rental rooms"
+    },
+    "universities/{uniId}": {
+      "schema": "University",
+      "description": "Collection of all universities"
+    }
+  }
+}

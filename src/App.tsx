@@ -17,6 +17,15 @@ import RoomDetailModal from './components/RoomDetailModal';
 import { Room, University, SearchFilters } from './types';
 import { getDistance } from './data/rooms';
 import { ShieldAlert, Info, MapPin } from 'lucide-react';
+import {
+  seedFirestoreIfNeeded,
+  subscribeRooms,
+  subscribeUniversities,
+  addRoomToFirebase,
+  updateRoomInFirebase,
+  deleteRoomFromFirebase,
+  addUniversityToFirebase
+} from './lib/firebase';
 
 export default function App() {
   // Trạng thái dữ liệu phòng trọ và trường Đại học tải động từ Server
@@ -53,7 +62,7 @@ export default function App() {
   const [mapCenter, setMapCenter] = useState<[number, number]>([21.0016, 105.8428]); // Mặc định là NEU
   const [mapZoom, setMapZoom] = useState<number>(15);
 
-  // Hàm tải dữ liệu đồng bộ từ server API
+  // Hàm tải dữ liệu đồng bộ từ server API (Làm dự phòng nếu Firestore không khả dụng)
   const fetchAllData = useCallback(async () => {
     try {
       const [roomsRes, unisRes] = await Promise.all([
@@ -69,38 +78,59 @@ export default function App() {
         setUniversities(unisData);
       }
     } catch (err) {
-      console.error('Lỗi khi tải đồng bộ dữ liệu:', err);
+      console.error('Lỗi khi tải đồng bộ dữ liệu dự phòng:', err);
     }
   }, []);
 
-  // Nạp dữ liệu ban đầu
+  // Thiết lập đồng bộ hóa thời gian thực trực tiếp từ Firebase Firestore
   useEffect(() => {
-    fetchAllData();
-  }, [fetchAllData]);
+    let unsubscribeRooms = () => {};
+    let unsubscribeUnis = () => {};
 
-  // Thiết lập Server-Sent Events (SSE) & Polling dự phòng để đồng bộ hóa thời gian thực (Real-time Sync trên mọi thiết bị)
-  useEffect(() => {
-    // 1. Kết nối Server-Sent Events (SSE)
-    const eventSource = new EventSource('/api/sync');
-    eventSource.onmessage = (event) => {
-      if (event.data === 'update') {
-        fetchAllData();
-      }
-    };
-    eventSource.onerror = (err) => {
-      console.warn('SSE disconnected. Fallback to active polling...', err);
-    };
+    // Seeding dữ liệu Firestore nếu rỗng, sau đó lắng nghe cập nhật real-time
+    seedFirestoreIfNeeded().then(() => {
+      unsubscribeRooms = subscribeRooms((firebaseRooms) => {
+        if (firebaseRooms) {
+          setRooms(firebaseRooms);
+        }
+      });
 
-    // 2. Thiết lập Polling thông minh dự phòng cứ mỗi 5 giây tự động đồng bộ hóa dữ liệu mới nhất
-    const interval = setInterval(() => {
+      unsubscribeUnis = subscribeUniversities((firebaseUnis) => {
+        if (firebaseUnis) {
+          setUniversities(firebaseUnis);
+        }
+      });
+    }).catch((err) => {
+      console.error("Lỗi khởi chạy Firebase, sử dụng API dự phòng:", err);
+      // Fallback sang API nếu Firebase bị lỗi
       fetchAllData();
-    }, 5000);
+    });
 
     return () => {
-      eventSource.close();
-      clearInterval(interval);
+      unsubscribeRooms();
+      unsubscribeUnis();
     };
   }, [fetchAllData]);
+
+  // Đồng bộ hóa trạng thái phòng đang chọn/xem chi tiết khi danh sách phòng trọ được cập nhật thời gian thực từ Firestore
+  useEffect(() => {
+    if (selectedRoom) {
+      const updated = rooms.find(r => r.id === selectedRoom.id);
+      if (updated) {
+        if (JSON.stringify(updated) !== JSON.stringify(selectedRoom)) {
+          setSelectedRoom(updated);
+        }
+      }
+    }
+    if (detailedRoom) {
+      const updated = rooms.find(r => r.id === detailedRoom.id);
+      if (updated) {
+        if (JSON.stringify(updated) !== JSON.stringify(detailedRoom)) {
+          setDetailedRoom(updated);
+        }
+      }
+    }
+  }, [rooms, selectedRoom, detailedRoom]);
 
   // Xử lý khi bộ lọc thay đổi
   const handleFiltersChange = (newFilters: SearchFilters) => {
@@ -185,93 +215,109 @@ export default function App() {
     setIsAdminDashboardOpen(false);
   };
 
-  // Các chức năng CRUD dành cho Admin đồng bộ trực tiếp tới Server
+  // Các chức năng CRUD dành cho Admin đồng bộ trực tiếp tới Server và Firebase Firestore
   const handleAddRoom = async (newRoom: Room): Promise<{ success: boolean; message?: string }> => {
     try {
-      const res = await fetch('/api/rooms', {
+      if (!newRoom.id) {
+        newRoom.id = 'LT' + Math.floor(10000000 + Math.random() * 90000000);
+      }
+
+      // 1. Lưu lên Firebase Firestore (Đám mây đồng bộ)
+      await addRoomToFirebase(newRoom);
+
+      // 2. Gửi dự phòng lên Express API (nếu đang chạy)
+      fetch('/api/rooms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newRoom),
-      });
-      if (res.ok) {
-        const result = await res.json();
-        await fetchAllData();
-        if (result.success && result.room) {
-          // Định vị và chọn phòng trọ mới thêm ngay lập tức để nhìn thấy ngay trên bản đồ!
-          setSelectedRoom(result.room);
-          setMapCenter([result.room.lat, result.room.lng]);
-          setMapZoom(17);
-        }
-        return { success: true };
-      } else {
-        const errData = await res.json();
-        return { success: false, message: errData.message || 'Lỗi khi thêm phòng trọ!' };
-      }
+      }).catch((err) => console.warn('Lỗi lưu dự phòng local API:', err));
+
+      // Định vị và chọn phòng trọ mới thêm ngay lập tức để nhìn thấy ngay trên bản đồ!
+      setSelectedRoom(newRoom);
+      setMapCenter([newRoom.lat, newRoom.lng]);
+      setMapZoom(17);
+
+      return { success: true };
     } catch (err) {
       console.error('Lỗi đăng phòng:', err);
-      return { success: false, message: 'Lỗi kết nối tới máy chủ!' };
+      return { success: false, message: 'Lỗi đồng bộ dữ liệu đám mây Firebase!' };
     }
   };
 
   const handleUpdateRoom = async (updatedRoom: Room, oldId?: string): Promise<{ success: boolean; message?: string }> => {
     try {
       const targetId = oldId || updatedRoom.id;
-      const res = await fetch(`/api/rooms/${targetId}`, {
+
+      // 1. Nếu có đổi ID mới, xóa ID cũ trên Firebase
+      if (oldId && oldId !== updatedRoom.id) {
+        await deleteRoomFromFirebase(oldId);
+      }
+
+      // 2. Lưu lên Firebase Firestore
+      await updateRoomInFirebase(updatedRoom);
+
+      // 3. Gửi dự phòng lên Express API (nếu đang chạy)
+      fetch(`/api/rooms/${targetId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedRoom),
-      });
-      if (res.ok) {
-        await fetchAllData();
-        // Định vị và cập nhật phòng được chọn để luôn thấy trên bản đồ
-        setSelectedRoom(updatedRoom);
-        setMapCenter([updatedRoom.lat, updatedRoom.lng]);
-        setMapZoom(17);
-        if (detailedRoom?.id === targetId || detailedRoom?.id === updatedRoom.id) {
-          setDetailedRoom(updatedRoom);
-        }
-        return { success: true };
-      } else {
-        const errData = await res.json();
-        return { success: false, message: errData.message || 'Lỗi khi cập nhật phòng trọ!' };
+      }).catch((err) => console.warn('Lỗi cập nhật dự phòng local API:', err));
+
+      // Định vị và cập nhật phòng được chọn để luôn thấy trên bản đồ
+      setSelectedRoom(updatedRoom);
+      setMapCenter([updatedRoom.lat, updatedRoom.lng]);
+      setMapZoom(17);
+      if (detailedRoom?.id === targetId || detailedRoom?.id === updatedRoom.id) {
+        setDetailedRoom(updatedRoom);
       }
+      return { success: true };
     } catch (err) {
       console.error('Lỗi cập nhật phòng:', err);
-      return { success: false, message: 'Lỗi kết nối tới máy chủ!' };
+      return { success: false, message: 'Lỗi đồng bộ dữ liệu đám mây Firebase!' };
     }
   };
 
   const handleDeleteRoom = async (roomId: string) => {
     try {
-      const res = await fetch(`/api/rooms/${roomId}`, {
+      // 1. Xóa trên Firebase Firestore
+      await deleteRoomFromFirebase(roomId);
+
+      // 2. Đồng bộ dự phòng local API (nếu có)
+      fetch(`/api/rooms/${roomId}`, {
         method: 'DELETE',
-      });
-      if (res.ok) {
-        fetchAllData();
-        if (selectedRoom?.id === roomId) {
-          setSelectedRoom(null);
-        }
-        if (detailedRoom?.id === roomId) {
-          setDetailedRoom(null);
-        }
+      }).catch((err) => console.warn('Lỗi xóa dự phòng local API:', err));
+
+      if (selectedRoom?.id === roomId) {
+        setSelectedRoom(null);
+      }
+      if (detailedRoom?.id === roomId) {
+        setDetailedRoom(null);
       }
     } catch (err) {
       console.error('Lỗi xóa phòng:', err);
     }
   };
 
-  const handleAddUniversity = async (newUni: University) => {
+  const handleAddUniversity = async (newUni: University): Promise<{ success: boolean; message?: string }> => {
     try {
-      const res = await fetch('/api/universities', {
+      if (!newUni.id) {
+        newUni.id = 'uni_' + Date.now();
+      }
+
+      // 1. Thêm lên Firebase
+      await addUniversityToFirebase(newUni);
+
+      // 2. Đồng bộ dự phòng local API
+      fetch('/api/universities', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newUni),
-      });
-      if (res.ok) {
-        fetchAllData();
-      }
-    } catch (err) {
+      }).catch((err) => console.warn('Lỗi thêm trường dự phòng local API:', err));
+
+      return { success: true };
+    } catch (err: any) {
       console.error('Lỗi thêm trường:', err);
+      return { success: false, message: err?.message || 'Lỗi kết nối hoặc đồng bộ dữ liệu đám mây Firebase!' };
     }
   };
 
