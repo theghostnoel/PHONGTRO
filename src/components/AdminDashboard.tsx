@@ -118,6 +118,7 @@ export default function AdminDashboard({
   const [price, setPrice] = useState<number | ''>('');
   const [priceType, setPriceType] = useState<'fixed' | 'range'>('fixed');
   const [priceMax, setPriceMax] = useState<number | ''>('');
+  const [priceUnit, setPriceUnit] = useState<'vnd' | 'million'>('vnd');
   const [address, setAddress] = useState('');
   const [lat, setLat] = useState<number | ''>('');
   const [lng, setLng] = useState<number | ''>('');
@@ -299,6 +300,7 @@ export default function AdminDashboard({
     setPrice('');
     setPriceType('fixed');
     setPriceMax('');
+    setPriceUnit('vnd');
     setAddress('');
     setLat(21.0016);
     setLng(105.8428);
@@ -321,13 +323,26 @@ export default function AdminDashboard({
   const handleOpenEditForm = (room: Room) => {
     setRoomId(room.id);
     setTitle(room.title);
-    setPrice(room.price);
-    if (room.priceMax && room.priceMax > room.price) {
-      setPriceType('range');
-      setPriceMax(room.priceMax);
+    if (room.price >= 100000 && room.price % 100000 === 0) {
+      setPriceUnit('million');
+      setPrice(room.price / 1000000);
+      if (room.priceMax && room.priceMax > room.price) {
+        setPriceType('range');
+        setPriceMax(room.priceMax / 1000000);
+      } else {
+        setPriceType('fixed');
+        setPriceMax('');
+      }
     } else {
-      setPriceType('fixed');
-      setPriceMax('');
+      setPriceUnit('vnd');
+      setPrice(room.price);
+      if (room.priceMax && room.priceMax > room.price) {
+        setPriceType('range');
+        setPriceMax(room.priceMax);
+      } else {
+        setPriceType('fixed');
+        setPriceMax('');
+      }
     }
     setAddress(room.address);
     setLat(room.lat);
@@ -468,13 +483,17 @@ export default function AdminDashboard({
     // Kiểm tra dữ liệu hợp lệ
     if (!roomId.trim()) return setFormError('Vui lòng nhập Mã phòng!');
     if (!title.trim()) return setFormError('Vui lòng nhập Tiêu đề phòng!');
-    if (price === '' || price <= 0) return setFormError('Giá phòng phải lớn hơn 0!');
+    
+    const finalPrice = priceUnit === 'million' ? Number(price) * 1000000 : Number(price);
+    const finalPriceMax = priceType === 'range' && priceMax !== '' ? (priceUnit === 'million' ? Number(priceMax) * 1000000 : Number(priceMax)) : undefined;
+
+    if (price === '' || finalPrice <= 0) return setFormError('Giá phòng phải lớn hơn 0!');
     
     if (priceType === 'range') {
-      if (priceMax === '' || priceMax <= 0) {
+      if (priceMax === '' || finalPriceMax === undefined || finalPriceMax <= 0) {
         return setFormError('Giá tối đa phải lớn hơn 0!');
       }
-      if (Number(priceMax) <= Number(price)) {
+      if (finalPriceMax <= finalPrice) {
         return setFormError('Giá tối đa phải lớn hơn Giá tối thiểu (từ)!');
       }
     }
@@ -487,8 +506,8 @@ export default function AdminDashboard({
     const newRoomData: Room = {
       id: roomId,
       title,
-      price: Number(price),
-      priceMax: priceType === 'range' && priceMax !== '' ? Number(priceMax) : undefined,
+      price: finalPrice,
+      priceMax: finalPriceMax,
       address,
       lat: Number(lat),
       lng: Number(lng),
@@ -672,48 +691,95 @@ export default function AdminDashboard({
                     </div>
 
                     <div className="space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <label className="text-xs font-bold text-slate-700 block">
+                          {priceType === 'fixed' ? 'Mức giá cố định' : 'Khoảng giá dao động'}
+                        </label>
+                        <div className="flex bg-slate-200/50 p-0.5 rounded-lg border border-slate-300/30">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (priceUnit === 'million') {
+                                setPriceUnit('vnd');
+                                if (price !== '') setPrice(Math.round(Number(price) * 1000000));
+                                if (priceMax !== '') setPriceMax(Math.round(Number(priceMax) * 1000000));
+                              }
+                            }}
+                            className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
+                              priceUnit === 'vnd'
+                                ? 'bg-white text-indigo-600 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-800'
+                            }`}
+                          >
+                            đ
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (priceUnit === 'vnd') {
+                                setPriceUnit('million');
+                                if (price !== '') setPrice(Number(price) / 1000000);
+                                if (priceMax !== '') setPriceMax(Number(priceMax) / 1000000);
+                              }
+                            }}
+                            className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
+                              priceUnit === 'million'
+                                ? 'bg-white text-indigo-600 shadow-sm'
+                                : 'text-slate-500 hover:text-slate-800'
+                            }`}
+                          >
+                            Triệu
+                          </button>
+                        </div>
+                      </div>
+
                       {priceType === 'fixed' ? (
-                        <>
-                          <label className="text-xs font-bold text-slate-700 block">Mức giá cố định (đ/tháng)</label>
-                          <div className="relative">
+                        <div className="relative">
+                          <input
+                            type="number"
+                            step="any"
+                            required
+                            value={price}
+                            onChange={(e) => setPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                            placeholder={priceUnit === 'million' ? "Ví dụ: 2.7" : "Ví dụ: 2700000"}
+                            className="w-full pl-3 pr-24 py-2 text-sm bg-white border border-slate-200 focus:border-indigo-600 focus:outline-none rounded-xl font-bold text-indigo-600"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                            {priceUnit === 'million' ? 'triệu đ/tháng' : 'đ/tháng'}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <div className="relative flex-1">
                             <input
                               type="number"
+                              step="any"
                               required
                               value={price}
                               onChange={(e) => setPrice(e.target.value === '' ? '' : Number(e.target.value))}
-                              placeholder="Ví dụ: 2700000"
-                              className="w-full pl-3 pr-16 py-2 text-sm bg-white border border-slate-200 focus:border-indigo-600 focus:outline-none rounded-xl font-bold text-indigo-600"
+                              placeholder="Từ"
+                              className="w-full pl-2 pr-10 py-2 text-xs bg-white border border-slate-200 focus:border-indigo-600 focus:outline-none rounded-xl font-bold text-indigo-600 text-center"
                             />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">đ/tháng</span>
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-slate-400">
+                              {priceUnit === 'million' ? 'tr' : 'đ'}
+                            </span>
                           </div>
-                        </>
-                      ) : (
-                        <>
-                          <label className="text-xs font-bold text-slate-700 block">Khoảng giá dao động (đ/tháng)</label>
-                          <div className="flex items-center gap-2">
-                            <div className="relative flex-1">
-                              <input
-                                type="number"
-                                required
-                                value={price}
-                                onChange={(e) => setPrice(e.target.value === '' ? '' : Number(e.target.value))}
-                                placeholder="Từ"
-                                className="w-full pl-2 pr-2 py-2 text-xs bg-white border border-slate-200 focus:border-indigo-600 focus:outline-none rounded-xl font-bold text-indigo-600 text-center"
-                              />
-                            </div>
-                            <span className="text-xs font-bold text-slate-400 shrink-0">đến</span>
-                            <div className="relative flex-1">
-                              <input
-                                type="number"
-                                required
-                                value={priceMax}
-                                onChange={(e) => setPriceMax(e.target.value === '' ? '' : Number(e.target.value))}
-                                placeholder="Đến"
-                                className="w-full pl-2 pr-2 py-2 text-xs bg-white border border-slate-200 focus:border-indigo-600 focus:outline-none rounded-xl font-bold text-indigo-600 text-center"
-                              />
-                            </div>
+                          <span className="text-xs font-bold text-slate-400 shrink-0">đến</span>
+                          <div className="relative flex-1">
+                            <input
+                              type="number"
+                              step="any"
+                              required
+                              value={priceMax}
+                              onChange={(e) => setPriceMax(e.target.value === '' ? '' : Number(e.target.value))}
+                              placeholder="Đến"
+                              className="w-full pl-2 pr-10 py-2 text-xs bg-white border border-slate-200 focus:border-indigo-600 focus:outline-none rounded-xl font-bold text-indigo-600 text-center"
+                            />
+                            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-bold text-slate-400">
+                              {priceUnit === 'million' ? 'tr' : 'đ'}
+                            </span>
                           </div>
-                        </>
+                        </div>
                       )}
                     </div>
                   </div>

@@ -32,6 +32,8 @@ interface MapComponentProps {
   mapZoom: number;
   onViewDetail: (room: Room) => void;
   universities: University[];
+  scanCenter: [number, number];
+  onScanCenterChange: (center: [number, number]) => void;
 }
 
 export default function MapComponent({
@@ -44,6 +46,8 @@ export default function MapComponent({
   mapZoom,
   onViewDetail,
   universities,
+  scanCenter,
+  onScanCenterChange,
 }: MapComponentProps) {
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [shareSuccess, setShareSuccess] = useState<string | null>(null);
@@ -113,6 +117,22 @@ export default function MapComponent({
     popupAnchor: [0, -8],
   });
 
+  // Tạo icon tùy chỉnh cho điểm trung tâm di động ghim tùy ý (bản đồ kéo thả)
+  const customCenterIcon = L.divIcon({
+    className: 'custom-center-marker',
+    html: `
+      <div class="flex flex-col items-center relative">
+        <div class="absolute -top-[14px] w-8 h-8 bg-indigo-500/30 rounded-full animate-ping pointer-events-none"></div>
+        <div class="w-8 h-8 bg-indigo-600 rounded-full ring-4 ring-indigo-100 shadow-lg flex items-center justify-center text-white border border-white font-bold select-none text-sm leading-none">
+          🎯
+        </div>
+        <div class="w-2.5 h-2.5 bg-indigo-600 border-r border-b border-indigo-600 rotate-45 -mt-1 shadow-sm"></div>
+      </div>
+    `,
+    iconSize: [36, 36],
+    iconAnchor: [18, 32],
+  });
+
   const handleShare = (room: Room) => {
     const priceFormatted = room.priceMax && room.priceMax > room.price
       ? `${room.price.toLocaleString('vi-VN')} - ${room.priceMax.toLocaleString('vi-VN')}`
@@ -141,20 +161,18 @@ export default function MapComponent({
         {/* Cập nhật tâm của bản đồ khi mapCenter thay đổi */}
         <ChangeMapView center={mapCenter} zoom={mapZoom} />
 
-        {/* Vòng tròn bán kính tìm kiếm (Circle) */}
-        {selectedUni && (
-          <Circle
-            center={[selectedUni.lat, selectedUni.lng]}
-            radius={filters.radius}
-            pathOptions={{
-              color: '#6366f1', // màu indigo-500
-              fillColor: '#818cf8', // màu indigo-400
-              fillOpacity: 0.12,
-              weight: 1.5,
-              dashArray: '5, 5',
-            }}
-          />
-        )}
+        {/* Vòng tròn bán kính tìm kiếm (Circle) - Luôn vẽ quanh scanCenter */}
+        <Circle
+          center={scanCenter}
+          radius={filters.radius}
+          pathOptions={{
+            color: '#6366f1', // màu indigo-500
+            fillColor: '#818cf8', // màu indigo-400
+            fillOpacity: 0.12,
+            weight: 1.5,
+            dashArray: '5, 5',
+          }}
+        />
 
         {/* Marker đại diện cho Trường Đại học đang chọn làm tâm quét */}
         {selectedUni && (
@@ -166,6 +184,36 @@ export default function MapComponent({
                 </span>
                 <h4 className="font-bold text-slate-900 text-xs mt-1.5">{selectedUni.name}</h4>
                 <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">{selectedUni.address}</p>
+              </div>
+            </Popup>
+          </Marker>
+        )}
+
+        {/* Điểm quét tự do kéo thả khi chọn chế độ "Ghim điểm tùy ý" */}
+        {filters.universityId === 'custom_pin' && (
+          <Marker
+            position={scanCenter}
+            icon={customCenterIcon}
+            draggable={true}
+            eventHandlers={{
+              dragend: (e) => {
+                const marker = e.target;
+                if (marker) {
+                  const position = marker.getLatLng();
+                  onScanCenterChange([position.lat, position.lng]);
+                }
+              }
+            }}
+          >
+            <Popup closeButton={false}>
+              <div className="p-3 bg-white max-w-[200px] rounded-lg">
+                <span className="text-[10px] bg-indigo-50 text-indigo-600 font-bold px-1.5 py-0.5 rounded">
+                  Tâm quét di động
+                </span>
+                <h4 className="font-bold text-slate-900 text-xs mt-1.5">🎯 Ghim quét tùy ý</h4>
+                <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">
+                  Bạn có thể kéo thả ghim này sang vị trí bất kỳ để tìm phòng trọ xung quanh vị trí đó!
+                </p>
               </div>
             </Popup>
           </Marker>

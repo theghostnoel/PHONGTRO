@@ -141,6 +141,9 @@ export default function App() {
       if (newFilters.universityId === 'other') {
         // Chuyển sang chế độ nhập địa chỉ tự do
         setGeocodeError('');
+      } else if (newFilters.universityId === 'custom_pin') {
+        // Chuyển sang chế độ ghim điểm tùy ý, đóng popup cũ
+        setSelectedRoom(null);
       } else {
         const selectedUni = universities.find(u => u.id === newFilters.universityId);
         if (selectedUni) {
@@ -457,6 +460,8 @@ export default function App() {
             mapZoom={mapZoom}
             onViewDetail={setDetailedRoom}
             universities={universities}
+            scanCenter={scanCenter}
+            onScanCenterChange={setScanCenter}
           />
         </div>
 

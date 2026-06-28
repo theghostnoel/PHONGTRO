@@ -139,6 +139,7 @@ export default function SearchPanel({
                 🎓 {uni.name} ({uni.shortName})
               </option>
             ))}
+            <option value="custom_pin">🎯 Ghim điểm tùy ý (Kéo thả ghim)</option>
             <option value="other">📍 Khác (Nhập địa chỉ tự do)</option>
           </select>
           <div className="absolute right-3 top-3.5 text-slate-400 pointer-events-none">
@@ -146,7 +147,14 @@ export default function SearchPanel({
           </div>
         </div>
 
-        {filters.universityId !== 'other' && selectedUni && (
+        {filters.universityId === 'custom_pin' && (
+          <p className="text-[10px] text-indigo-600 font-bold leading-tight pl-1 flex items-start gap-1 bg-indigo-50/50 p-2.5 rounded-xl border border-indigo-100/60 animate-fade-in">
+            <span className="shrink-0 text-xs">💡</span>
+            <span>Kéo thả biểu tượng mục tiêu 🎯 trên bản đồ để tự do thay đổi vùng quét phòng trọ!</span>
+          </p>
+        )}
+
+        {filters.universityId !== 'other' && filters.universityId !== 'custom_pin' && selectedUni && (
           <p className="text-[10px] text-slate-500 italic leading-tight pl-1 flex items-start gap-1">
             <span className="shrink-0">📍</span>
             <span>{selectedUni.address}</span>
