@@ -9,6 +9,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import MapComponent from './components/MapComponent';
 import SearchPanel from './components/SearchPanel';
 import AdminLogin from './components/AdminLogin';
@@ -16,7 +17,7 @@ import AdminDashboard from './components/AdminDashboard';
 import RoomDetailModal from './components/RoomDetailModal';
 import { Room, University, SearchFilters } from './types';
 import { getDistance } from './data/rooms';
-import { ShieldAlert, Info, MapPin, Filter } from 'lucide-react';
+import { ShieldAlert, Info, MapPin, Filter, MessageSquare, Settings } from 'lucide-react';
 import {
   seedFirestoreIfNeeded,
   subscribeRooms,
@@ -24,7 +25,9 @@ import {
   addRoomToFirebase,
   updateRoomInFirebase,
   deleteRoomFromFirebase,
-  addUniversityToFirebase
+  addUniversityToFirebase,
+  subscribeFeedbackUrl,
+  updateFeedbackUrlInFirebase
 } from './lib/firebase';
 
 export default function App() {
@@ -55,6 +58,7 @@ export default function App() {
   });
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [isAdminDashboardOpen, setIsAdminDashboardOpen] = useState(false);
+  const [feedbackUrl, setFeedbackUrl] = useState<string>('https://forms.gle/4v2n4v2n4v2n4v2n');
 
   // Trạng thái lựa chọn bản đồ (giản lược) và xem chi tiết (modal)
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
@@ -92,6 +96,7 @@ export default function App() {
   useEffect(() => {
     let unsubscribeRooms = () => {};
     let unsubscribeUnis = () => {};
+    let unsubscribeFeedback = () => {};
 
     // Seeding dữ liệu Firestore nếu rỗng, sau đó lắng nghe cập nhật real-time
     seedFirestoreIfNeeded().then(() => {
@@ -106,6 +111,12 @@ export default function App() {
           setUniversities(firebaseUnis);
         }
       });
+
+      unsubscribeFeedback = subscribeFeedbackUrl((url) => {
+        if (url) {
+          setFeedbackUrl(url);
+        }
+      });
     }).catch((err) => {
       console.error("Lỗi khởi chạy Firebase, sử dụng API dự phòng:", err);
       // Fallback sang API nếu Firebase bị lỗi
@@ -115,6 +126,7 @@ export default function App() {
     return () => {
       unsubscribeRooms();
       unsubscribeUnis();
+      unsubscribeFeedback();
     };
   }, [fetchAllData]);
 
@@ -421,6 +433,19 @@ export default function App() {
 
         {/* Header Right Actions */}
         <div className="flex items-center gap-3">
+          {/* Public Feedback & Suggestion Button */}
+          <motion.a
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            href={feedbackUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md cursor-pointer transition-colors"
+          >
+            <MessageSquare size={13} />
+            <span>Góp ý & Thêm phòng</span>
+          </motion.a>
+
           {isAdminLoggedIn ? (
             <div className="flex items-center gap-2">
               <button
@@ -437,17 +462,14 @@ export default function App() {
               </button>
             </div>
           ) : (
-            <button
+            /* Tiny, almost invisible dot as secondary secret Admin trigger */
+            <span 
               onClick={() => setIsAdminLoginOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl transition-colors shadow-sm text-sm font-semibold cursor-pointer"
+              className="text-[10px] text-slate-300 hover:text-indigo-600 cursor-default select-none transition-colors px-1 font-mono"
+              title="System Service"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
-                <polyline points="10 17 15 12 10 7" />
-                <line x1="15" y1="12" x2="3" y2="12" />
-              </svg>
-              Đăng nhập Admin
-            </button>
+              ·
+            </span>
           )}
         </div>
       </header>
@@ -472,75 +494,102 @@ export default function App() {
           />
         </div>
 
-        {/* Floating Controls Overlay (Sleek Theme) */}
-        <div 
-          className={`absolute top-4 sm:top-6 left-4 sm:left-6 z-[1000] w-[calc(100%-2rem)] sm:w-auto max-w-md pointer-events-none flex flex-col gap-4 transition-all duration-300 ${
-            isFilterOpen 
-              ? 'translate-y-0 opacity-100 pointer-events-auto' 
-              : '-translate-y-full opacity-0 pointer-events-none'
-          }`}
-          id="control-panels-overlay"
-        >
-          {/* User Filter SearchPanel */}
-          <SearchPanel
-            filters={filters}
-            onFiltersChange={handleFiltersChange}
-            isAdminLoggedIn={isAdminLoggedIn}
-            onOpenAdminModal={() => setIsAdminLoginOpen(true)}
-            onAdminLogout={handleAdminLogout}
-            filteredRoomsCount={filteredRooms.length}
-            onLocateUser={handleLocateUser}
-            universities={universities}
-            customAddress={customAddress}
-            onCustomAddressChange={setCustomAddress}
-            isGeocoding={isGeocoding}
-            onGeocodeCustomAddress={handleGeocodeCustomAddress}
-            geocodeError={geocodeError}
-            onCloseMobile={() => setIsFilterOpen(false)}
-          />
-
-          {/* Connected Admin Mini Badge */}
-          {isAdminLoggedIn && (
-            <div 
-              className="bg-slate-900/95 backdrop-blur-md text-white p-3.5 rounded-2xl shadow-xl border border-slate-800 pointer-events-auto flex items-center justify-between"
-              id="admin-status-bar"
+        {/* Floating Controls Overlay (Sleek Theme with elegant Framer Motion animations) */}
+        <AnimatePresence>
+          {isFilterOpen && (
+            <motion.div 
+              initial={{ x: -300, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -300, opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+              className="absolute top-4 sm:top-6 left-4 sm:left-6 z-[1000] w-[calc(100%-2rem)] sm:w-auto max-w-md pointer-events-auto flex flex-col gap-4"
+              id="control-panels-overlay"
             >
-              <div className="flex items-center gap-2.5">
-                <span className="flex h-2.5 w-2.5 relative">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                </span>
-                <span className="text-xs font-bold text-slate-200">Bảng điều khiển trực tuyến</span>
-              </div>
-              <span className="text-[10px] bg-indigo-500 text-white font-extrabold px-2.5 py-1 rounded-md uppercase tracking-wider">
-                AD-9932
-              </span>
-            </div>
+              {/* User Filter SearchPanel */}
+              <SearchPanel
+                filters={filters}
+                onFiltersChange={handleFiltersChange}
+                isAdminLoggedIn={isAdminLoggedIn}
+                onOpenAdminModal={() => setIsAdminLoginOpen(true)}
+                onAdminLogout={handleAdminLogout}
+                filteredRoomsCount={filteredRooms.length}
+                onLocateUser={handleLocateUser}
+                universities={universities}
+                customAddress={customAddress}
+                onCustomAddressChange={setCustomAddress}
+                isGeocoding={isGeocoding}
+                onGeocodeCustomAddress={handleGeocodeCustomAddress}
+                geocodeError={geocodeError}
+                onCloseMobile={() => setIsFilterOpen(false)}
+              />
+
+              {/* Connected Admin Mini Badge */}
+              {isAdminLoggedIn && (
+                <motion.div 
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: 20, opacity: 0 }}
+                  className="bg-slate-900/95 backdrop-blur-md text-white p-3.5 rounded-2xl shadow-xl border border-slate-800 pointer-events-auto flex items-center justify-between"
+                  id="admin-status-bar"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="flex h-2.5 w-2.5 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                    </span>
+                    <span className="text-xs font-bold text-slate-200">Bảng điều khiển trực tuyến</span>
+                  </div>
+                  <span className="text-[10px] bg-indigo-500 text-white font-extrabold px-2.5 py-1 rounded-md uppercase tracking-wider">
+                    AD-9932
+                  </span>
+                </motion.div>
+              )}
+            </motion.div>
           )}
-        </div>
+        </AnimatePresence>
 
         {/* Filter Toggle Button */}
-        {!isFilterOpen && (
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[1000] pointer-events-auto animate-fade-in-up">
-            <button
-              onClick={() => setIsFilterOpen(true)}
-              className="flex items-center gap-2 px-6 py-3.5 bg-indigo-600/95 backdrop-blur-md hover:bg-indigo-600 active:scale-95 text-white text-xs font-extrabold rounded-full shadow-2xl border border-indigo-400/30 shadow-indigo-500/30 transition-all duration-300 cursor-pointer whitespace-nowrap hover:scale-105 hover:shadow-indigo-500/40 pulse-glow"
+        <AnimatePresence>
+          {!isFilterOpen && (
+            <motion.div 
+              initial={{ y: 80, opacity: 0, scale: 0.8 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 80, opacity: 0, scale: 0.8 }}
+              transition={{ type: 'spring', damping: 20, stiffness: 280 }}
+              className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[1000] pointer-events-auto"
             >
-              <Filter size={14} className="animate-bounce" />
-              Mở bộ lọc & Tìm kiếm ({filteredRooms.length})
-            </button>
-          </div>
-        )}
+              <motion.button
+                whileHover={{ scale: 1.05, shadow: "0 25px 50px -12px rgba(99, 102, 241, 0.4)" }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => setIsFilterOpen(true)}
+                className="flex items-center gap-2 px-6 py-3.5 bg-indigo-600/95 backdrop-blur-md hover:bg-indigo-600 text-white text-xs font-extrabold rounded-full shadow-2xl border border-indigo-400/30 shadow-indigo-500/30 transition-all duration-300 cursor-pointer whitespace-nowrap pulse-glow"
+              >
+                <Filter size={14} className="animate-bounce" />
+                Mở bộ lọc & Tìm kiếm ({filteredRooms.length})
+              </motion.button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
       {/* 3. BOTTOM BRANDING/FOOTER OVERLAY */}
       <footer className="h-10 bg-slate-900 flex items-center justify-between px-6 shrink-0 z-50">
         <div className="flex gap-4 text-[10px] text-slate-400 uppercase tracking-widest font-semibold">
-          <span>© 2026 UniStay VN</span>
+          <span 
+            onDoubleClick={() => setIsAdminLoginOpen(true)}
+            className="cursor-default select-none"
+            title="Phiên bản 2.4.0"
+          >
+            © 2026 UniStay VN
+          </span>
           <span className="hidden md:inline">Chính sách bảo mật</span>
           <span className="hidden md:inline">Hỗ trợ kỹ thuật</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div 
+          onClick={() => setIsAdminLoginOpen(true)}
+          className="flex items-center gap-2 cursor-pointer select-none"
+          title="Bảng điều khiển hệ thống"
+        >
           <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
           <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider">Hệ thống sẵn sàng</span>
         </div>
@@ -563,14 +612,20 @@ export default function App() {
         onSelectRoomOnMap={handleSelectRoomOnMap}
         universities={universities}
         onAddUniversity={handleAddUniversity}
+        feedbackUrl={feedbackUrl}
+        onUpdateFeedbackUrl={updateFeedbackUrlInFirebase}
       />
 
-      <RoomDetailModal
-        room={detailedRoom}
-        isOpen={detailedRoom !== null}
-        onClose={() => setDetailedRoom(null)}
-        isAdminLoggedIn={isAdminLoggedIn}
-      />
+      <AnimatePresence>
+        {detailedRoom && (
+          <RoomDetailModal
+            room={detailedRoom}
+            isOpen={true}
+            onClose={() => setDetailedRoom(null)}
+            isAdminLoggedIn={isAdminLoggedIn}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

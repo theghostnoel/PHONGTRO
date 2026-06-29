@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'motion/react';
 import { X, Phone, MessageSquare, Share2, Shield, Calendar, Maximize2, Users, Compass } from 'lucide-react';
 import { Room } from '../types';
 
@@ -73,13 +74,20 @@ export default function RoomDetailModal({ room, isOpen, onClose, isAdminLoggedIn
   const syntaxText = `${room.id} - ${room.address} - ${priceFormatted} đ/tháng`;
 
   return (
-    <div 
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
       className="fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm overflow-y-auto"
       onClick={onClose}
       id="room-detail-overlay"
     >
-      <div 
-        className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]"
+      <motion.div 
+        initial={{ scale: 0.9, y: 50, opacity: 0 }}
+        animate={{ scale: 1, y: 0, opacity: 1 }}
+        exit={{ scale: 0.9, y: 50, opacity: 0 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 220 }}
+        className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
         id="room-detail-modal"
       >
@@ -279,7 +287,7 @@ export default function RoomDetailModal({ room, isOpen, onClose, isAdminLoggedIn
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

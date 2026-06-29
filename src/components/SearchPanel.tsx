@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { Search, Plus, Minus, School, DollarSign, Locate, Filter, LogIn, LogOut, Check, MapPin, Loader2, X } from 'lucide-react';
 import { University, SearchFilters } from '../types';
 
@@ -161,85 +162,113 @@ export default function SearchPanel({
           </div>
         </div>
 
-        {filters.universityId === 'custom_pin' && (
-          <p className="text-[10px] text-indigo-600 font-bold leading-tight pl-1 flex items-start gap-1 bg-indigo-50/70 p-2.5 rounded-xl border border-indigo-100/60 animate-scale-in">
-            <span className="shrink-0 text-xs">💡</span>
-            <span>Kéo thả biểu tượng mục tiêu 🎯 trên bản đồ để tự do thay đổi vùng quét phòng trọ!</span>
-          </p>
-        )}
+        <AnimatePresence mode="wait">
+          {filters.universityId === 'custom_pin' && (
+            <motion.p 
+              key="custom_pin"
+              initial={{ height: 0, opacity: 0, scale: 0.95 }}
+              animate={{ height: 'auto', opacity: 1, scale: 1 }}
+              exit={{ height: 0, opacity: 0, scale: 0.95 }}
+              transition={{ type: 'spring', damping: 20, stiffness: 200 }}
+              className="text-[10px] text-indigo-600 font-bold leading-tight pl-1 flex items-start gap-1 bg-indigo-50/70 p-2.5 rounded-xl border border-indigo-100/60 overflow-hidden"
+            >
+              <span className="shrink-0 text-xs">💡</span>
+              <span>Kéo thả biểu tượng mục tiêu 🎯 trên bản đồ để tự do thay đổi vùng quét phòng trọ!</span>
+            </motion.p>
+          )}
 
-        {filters.universityId !== 'other' && filters.universityId !== 'custom_pin' && selectedUni && (
-          <p className="text-[10px] text-slate-500 italic leading-tight pl-1.5 flex items-start gap-1 animate-scale-in">
-            <span className="shrink-0 text-[11px]">📍</span>
-            <span>{selectedUni.address}</span>
-          </p>
-        )}
+          {filters.universityId !== 'other' && filters.universityId !== 'custom_pin' && selectedUni && (
+            <motion.p 
+              key="uni_address"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="text-[10px] text-slate-500 italic leading-tight pl-1.5 flex items-start gap-1"
+            >
+              <span className="shrink-0 text-[11px]">📍</span>
+              <span>{selectedUni.address}</span>
+            </motion.p>
+          )}
 
-        {/* Custom Address Input Panel for 'Other' option */}
-        {filters.universityId === 'other' && (
-          <div className="p-3 bg-indigo-50/40 border border-indigo-100/50 rounded-xl space-y-2 animate-scale-in">
-            <label className="block text-[10px] font-extrabold text-indigo-900/60 uppercase tracking-wider">Nhập địa chỉ của bạn</label>
-            <div className="flex gap-1.5">
-              <input
-                type="text"
-                value={customAddress}
-                onChange={(e) => onCustomAddressChange(e.target.value)}
-                placeholder="Ví dụ: 259 Trần Đại Nghĩa"
-                className="flex-1 px-3 py-2.5 text-xs bg-white border border-indigo-100 focus:border-indigo-500 focus:outline-none rounded-lg font-bold transition-all duration-300 focus:ring-4 focus:ring-indigo-100/50 shadow-inner"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    onGeocodeCustomAddress();
-                  }
-                }}
-              />
-              <button
-                type="button"
-                disabled={isGeocoding || !customAddress.trim()}
-                onClick={onGeocodeCustomAddress}
-                className="px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center justify-center cursor-pointer transition-all duration-300 active:scale-95 disabled:opacity-40"
-                title="Định vị địa chỉ này"
-              >
-                {isGeocoding ? (
-                  <Loader2 size={13} className="animate-spin" />
-                ) : (
-                  <MapPin size={13} className="animate-pulse" />
-                )}
-              </button>
-            </div>
-            {geocodeError && (
-              <p className="text-[10px] text-rose-600 font-bold bg-rose-50 px-2 py-1 rounded border border-rose-100 animate-scale-in">{geocodeError}</p>
-            )}
-            {!geocodeError && !isGeocoding && (
-              <p className="text-[9px] text-slate-400 italic">Hệ thống sử dụng bản đồ OSM để tìm tọa độ miễn phí.</p>
-            )}
-          </div>
-        )}
+          {/* Custom Address Input Panel for 'Other' option */}
+          {filters.universityId === 'other' && (
+            <motion.div 
+              key="custom_address"
+              initial={{ height: 0, opacity: 0, scale: 0.95 }}
+              animate={{ height: 'auto', opacity: 1, scale: 1 }}
+              exit={{ height: 0, opacity: 0, scale: 0.95 }}
+              transition={{ type: 'spring', damping: 20, stiffness: 200 }}
+              className="p-3 bg-indigo-50/40 border border-indigo-100/50 rounded-xl space-y-2 overflow-hidden"
+            >
+              <label className="block text-[10px] font-extrabold text-indigo-900/60 uppercase tracking-wider">Nhập địa chỉ của bạn</label>
+              <div className="flex gap-1.5">
+                <input
+                  type="text"
+                  value={customAddress}
+                  onChange={(e) => onCustomAddressChange(e.target.value)}
+                  placeholder="Ví dụ: 259 Trần Đại Nghĩa"
+                  className="flex-1 px-3 py-2.5 text-xs bg-white border border-indigo-100 focus:border-indigo-500 focus:outline-none rounded-lg font-bold transition-all duration-300 focus:ring-4 focus:ring-indigo-100/50 shadow-inner"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      onGeocodeCustomAddress();
+                    }
+                  }}
+                />
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  type="button"
+                  disabled={isGeocoding || !customAddress.trim()}
+                  onClick={onGeocodeCustomAddress}
+                  className="px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center justify-center cursor-pointer transition-all duration-300 active:scale-95 disabled:opacity-40"
+                  title="Định vị địa chỉ này"
+                >
+                  {isGeocoding ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : (
+                    <MapPin size={13} className="animate-pulse" />
+                  )}
+                </motion.button>
+              </div>
+              {geocodeError && (
+                <p className="text-[10px] text-rose-600 font-bold bg-rose-50 px-2 py-1 rounded border border-rose-100">{geocodeError}</p>
+              )}
+              {!geocodeError && !isGeocoding && (
+                <p className="text-[9px] text-slate-400 italic">Hệ thống sử dụng bản đồ OSM để tìm tọa độ miễn phí.</p>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Radius Controls */}
       <div>
         <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Bán kính quét (m)</label>
         <div className="flex items-center gap-3">
-          <button
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={() => handleRadiusChange(-200)}
             disabled={filters.radius <= 200}
-            className="w-10 h-10 bg-slate-100 hover:bg-slate-200 disabled:opacity-30 rounded-xl flex items-center justify-center font-bold text-lg transition-all duration-300 active:scale-90 hover:shadow-inner cursor-pointer"
+            className="w-10 h-10 bg-slate-100 hover:bg-slate-200 disabled:opacity-30 rounded-xl flex items-center justify-center font-bold text-lg transition-all duration-300 cursor-pointer"
           >
             -
-          </button>
+          </motion.button>
           
           <div className="flex-1 bg-indigo-50/40 border border-indigo-100 rounded-xl px-4 py-2.5 text-center font-bold text-indigo-700 font-mono tracking-tight shadow-sm">
             {filters.radius >= 1000 ? `${(filters.radius / 1000).toFixed(1)} km` : `${filters.radius}m`}
           </div>
 
-          <button
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={() => handleRadiusChange(200)}
             disabled={filters.radius >= 5000}
-            className="w-10 h-10 bg-slate-100 hover:bg-slate-200 disabled:opacity-30 rounded-xl flex items-center justify-center font-bold text-lg transition-all duration-300 active:scale-90 hover:shadow-inner cursor-pointer"
+            className="w-10 h-10 bg-slate-100 hover:bg-slate-200 disabled:opacity-30 rounded-xl flex items-center justify-center font-bold text-lg transition-all duration-300 cursor-pointer"
           >
             +
-          </button>
+          </motion.button>
         </div>
       </div>
 
@@ -279,60 +308,72 @@ export default function SearchPanel({
 
         {/* Quick filter chips */}
         <div className="flex flex-wrap gap-1.5">
-          <button
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
             onClick={() => onFiltersChange({ ...filters, minPrice: 0, maxPrice: 3000000 })}
-            className={`text-[10px] font-extrabold uppercase tracking-wider px-3 py-2 rounded-xl transition-all duration-300 active:scale-90 cursor-pointer ${
+            className={`text-[10px] font-extrabold uppercase tracking-wider px-3 py-2 rounded-xl transition-all duration-300 cursor-pointer ${
               filters.minPrice === 0 && filters.maxPrice === 3000000
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
             }`}
           >
             Dưới 3Tr
-          </button>
-          <button
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
             onClick={() => onFiltersChange({ ...filters, minPrice: 3000000, maxPrice: 6000000 })}
-            className={`text-[10px] font-extrabold uppercase tracking-wider px-3 py-2 rounded-xl transition-all duration-300 active:scale-90 cursor-pointer ${
+            className={`text-[10px] font-extrabold uppercase tracking-wider px-3 py-2 rounded-xl transition-all duration-300 cursor-pointer ${
               filters.minPrice === 3000000 && filters.maxPrice === 6000000
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
             }`}
           >
             3Tr - 6Tr
-          </button>
-          <button
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
             onClick={() => onFiltersChange({ ...filters, minPrice: 6000000, maxPrice: 15000000 })}
-            className={`text-[10px] font-extrabold uppercase tracking-wider px-3 py-2 rounded-xl transition-all duration-300 active:scale-90 cursor-pointer ${
+            className={`text-[10px] font-extrabold uppercase tracking-wider px-3 py-2 rounded-xl transition-all duration-300 cursor-pointer ${
               filters.minPrice === 6000000 && filters.maxPrice === 15000000
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
             }`}
           >
             6Tr - 15Tr
-          </button>
-          <button
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
             onClick={() => onFiltersChange({ ...filters, minPrice: 15000000, maxPrice: 100000000 })}
-            className={`text-[10px] font-extrabold uppercase tracking-wider px-3 py-2 rounded-xl transition-all duration-300 active:scale-90 cursor-pointer ${
+            className={`text-[10px] font-extrabold uppercase tracking-wider px-3 py-2 rounded-xl transition-all duration-300 cursor-pointer ${
               filters.minPrice === 15000000 && filters.maxPrice === 100000000
                 ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100'
                 : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
             }`}
           >
             Trên 15Tr
-          </button>
+          </motion.button>
         </div>
       </div>
 
       {/* Locate Button & Reset Controls */}
       <div className="grid grid-cols-2 gap-2 pt-3 border-t border-slate-100">
-        <button
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
           onClick={onLocateUser}
-          className="flex items-center justify-center gap-1.5 text-xs font-extrabold text-indigo-600 bg-indigo-50 hover:bg-indigo-100/80 px-3 py-3 rounded-xl transition-all duration-300 active:scale-95 cursor-pointer hover:shadow-sm"
+          className="flex items-center justify-center gap-1.5 text-xs font-extrabold text-indigo-600 bg-indigo-50 hover:bg-indigo-100/80 px-3 py-3 rounded-xl transition-all duration-300 cursor-pointer hover:shadow-sm"
         >
           <Locate size={13} className="animate-pulse" />
           Vị trí của tôi
-        </button>
+        </motion.button>
 
-        <button
+        <motion.button
+          whileHover={{ scale: 1.03 }}
+          whileTap={{ scale: 0.97 }}
           onClick={() => onFiltersChange({
             universityId: 'neu',
             radius: 1000,
@@ -343,7 +384,7 @@ export default function SearchPanel({
           className="text-xs font-bold text-slate-500 bg-slate-50 hover:bg-slate-100 px-3 py-2.5 rounded-xl transition-all cursor-pointer border border-slate-200/60"
         >
           Đặt lại bộ lọc
-        </button>
+        </motion.button>
       </div>
 
       {/* Mobile & Desktop Apply/Collapse Button */}

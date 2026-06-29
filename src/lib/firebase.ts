@@ -149,3 +149,24 @@ export async function deleteUniversityFromFirebase(uniId: string): Promise<void>
   const uniRef = doc(db, "universities", uniId);
   await deleteDoc(uniRef);
 }
+
+// 8. Lắng nghe cấu hình đường link góp ý thời gian thực
+export function subscribeFeedbackUrl(callback: (url: string) => void) {
+  const settingsDoc = doc(db, "settings", "feedback");
+  return onSnapshot(settingsDoc, (snapshot) => {
+    if (snapshot.exists()) {
+      callback(snapshot.data().url || "https://forms.gle/4v2n4v2n4v2n4v2n");
+    } else {
+      callback("https://forms.gle/4v2n4v2n4v2n4v2n"); // Link mặc định nếu rỗng
+    }
+  }, (error) => {
+    console.error("Lỗi subscription feedback url:", error);
+  });
+}
+
+// 9. Cập nhật đường link góp ý
+export async function updateFeedbackUrlInFirebase(url: string): Promise<void> {
+  const settingsDoc = doc(db, "settings", "feedback");
+  await setDoc(settingsDoc, { url });
+}
+

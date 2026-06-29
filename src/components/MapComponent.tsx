@@ -1,26 +1,115 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { Room, University, SearchFilters } from '../types';
-import { UNIVERSITIES, getDistance } from '../data/rooms';
-import { MapPin, Share2, Phone, MessageSquare, X, ShieldAlert, BadgeInfo } from 'lucide-react';
+import { MapPin, Share2, MessageSquare, BadgeInfo } from 'lucide-react';
 
-// Thành phần để hỗ trợ di chuyển bản đồ đến tâm mới
-function ChangeMapView({ center, zoom }: { center: [number, number]; zoom: number }) {
+// Component điều khiển di chuyển bản đồ và căn góc nhìn tự động
+function LeafletMapController({
+  scanCenter,
+  radius,
+  isFilterOpen,
+  selectedRoom,
+  mapCenter,
+  mapZoom
+}: {
+  scanCenter: [number, number];
+  radius: number;
+  isFilterOpen: boolean;
+  selectedRoom: Room | null;
+  mapCenter: [number, number];
+  mapZoom: number;
+}) {
   const map = useMap();
+
+  // Thiết lập góc nhìn ban đầu khi bản đồ tải
   useEffect(() => {
-    map.setView(center, zoom, {
-      animate: true,
-      duration: 1,
-    });
-  }, [center, zoom, map]);
+    if (map && mapCenter) {
+      map.setView(mapCenter, mapZoom);
+    }
+  }, [map]);
+
+  // Tự động căn góc nhìn để hiển thị trọn vẹn vòng tròn bán kính tìm kiếm (brentwood-padding)
+  useEffect(() => {
+    if (map && scanCenter && !selectedRoom) {
+      // Tính toán bounds tương đối bao quanh hình tròn
+      // 1 vĩ độ tương đương ~111,111 mét
+      const latOffset = radius / 111111;
+      const lngOffset = radius / (111111 * Math.cos(scanCenter[0] * Math.PI / 180));
+      
+      const southWest = L.latLng(scanCenter[0] - latOffset, scanCenter[1] - lngOffset);
+      const northEast = L.latLng(scanCenter[0] + latOffset, scanCenter[1] + lngOffset);
+      const bounds = L.latLngBounds(southWest, northEast);
+
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+      // Dịch chuyển hiển thị để tránh bị bảng bộ lọc bên trái (desktop) hoặc bên dưới (mobile) đè lên
+      const paddingLeft = (!isMobile && isFilterOpen) ? 380 : 40;
+      const paddingTop = (isMobile && isFilterOpen) ? 180 : 40;
+
+      map.flyToBounds(bounds, {
+        animate: true,
+        duration: 0.8,
+        paddingTopLeft: [paddingLeft, paddingTop],
+        paddingBottomRight: [40, 40],
+      });
+    }
+  }, [map, scanCenter, radius, selectedRoom, isFilterOpen]);
+
+  // Tự động dịch chuyển đến phòng trọ khi được chọn từ danh sách ngoài
+  useEffect(() => {
+    if (map && selectedRoom) {
+      map.setView([selectedRoom.lat, selectedRoom.lng], 16, { animate: true });
+    }
+  }, [map, selectedRoom]);
+
   return null;
 }
+
+// Tạo icon tuỳ chỉnh cho Trường đại học trung tâm
+const uniIcon = L.divIcon({
+  html: `
+    <div class="flex flex-col items-center" style="transform: translate(-50%, -50%);">
+      <div class="w-4 h-4 bg-rose-500 rounded-full ring-4 ring-rose-100 shadow-md"></div>
+    </div>
+  `,
+  className: 'custom-leaflet-marker',
+  iconSize: [0, 0],
+  iconAnchor: [0, 0]
+});
+
+// Tạo icon cho điểm ghim tuỳ ý
+const customPinIcon = L.divIcon({
+  html: `
+    <div class="flex flex-col items-center relative cursor-grab active:cursor-grabbing" style="transform: translate(-50%, -100%);">
+      <div class="absolute -top-[14px] w-8 h-8 bg-indigo-500/30 rounded-full animate-ping pointer-events-none"></div>
+      <div class="w-8 h-8 bg-indigo-600 rounded-full ring-4 ring-indigo-100 shadow-lg flex items-center justify-center text-white border border-white font-bold select-none text-sm leading-none">
+        🎯
+      </div>
+      <div class="w-2.5 h-2.5 bg-indigo-600 border-r border-b border-indigo-600 rotate-45 -mt-1 shadow-sm"></div>
+    </div>
+  `,
+  className: 'custom-leaflet-marker',
+  iconSize: [0, 0],
+  iconAnchor: [0, 0]
+});
+
+// Tạo các icon tuỳ chỉnh theo mức giá (Airbnb style)
+const createPriceMarkerIcon = (priceText: string, bgClass: string, caretColor: string) => {
+  return L.divIcon({
+    html: `
+      <div class="relative flex flex-col items-center select-none" style="transform: translate(-50%, -100%); width: max-content;">
+        <div class="flex items-center gap-1 font-sans text-xs rounded-xl px-2.5 py-1.5 border shadow-md transition-all duration-300 whitespace-nowrap cursor-pointer ${bgClass}">
+          <span>${priceText}Tr</span>
+          <span class="text-[10px] text-indigo-500 opacity-90">⌂</span>
+        </div>
+        <div class="w-2 h-2 -mt-1 rotate-45 border-r border-b shadow-sm ${caretColor}"></div>
+      </div>
+    `,
+    className: 'custom-leaflet-marker',
+    iconSize: [0, 0],
+    iconAnchor: [0, 0]
+  });
+};
 
 interface MapComponentProps {
   rooms: Room[];
@@ -51,109 +140,8 @@ export default function MapComponent({
   onScanCenterChange,
   isFilterOpen = true,
 }: MapComponentProps) {
-  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [shareSuccess, setShareSuccess] = useState<string | null>(null);
-
-  // Tự động điều chỉnh góc nhìn bản đồ để hiển thị trọn vẹn vòng tròn bán kính tìm kiếm
-  useEffect(() => {
-    if (mapInstance && scanCenter && !selectedRoom) {
-      // Tính toán bounds của hình tròn dựa trên tâm quét và bán kính (mét)
-      const bounds = L.latLng(scanCenter).toBounds(filters.radius);
-      
-      const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
-      // Nếu bộ lọc đang mở thì dịch chuyển tâm hiển thị để không bị bảng đè lên
-      const paddingLeft = (!isMobile && isFilterOpen) ? 380 : 40;
-      const paddingTop = (isMobile && isFilterOpen) ? 180 : 40;
-      
-      mapInstance.fitBounds(bounds, {
-        animate: true,
-        duration: 0.8,
-        paddingTopLeft: [paddingLeft, paddingTop],
-        paddingBottomRight: [40, 40],
-      });
-    }
-  }, [mapInstance, scanCenter, filters.radius, selectedRoom, isFilterOpen]);
-
-  // Tìm thông tin trường đại học đang chọn để lấy tọa độ làm tâm điểm Circle
-  const selectedUni = universities.find((u) => u.id === filters.universityId);
-
-  // Tạo icon tùy chỉnh cho các phòng trọ dựa vào mức giá (Airbnb-style)
-  const createPriceIcon = (room: Room, isSelected: boolean, isMatchingFilter: boolean) => {
-    const minMillion = (room.price / 1000000).toLocaleString('vi-VN', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 1,
-    });
-    const maxMillion = room.priceMax && room.priceMax > room.price
-      ? (room.priceMax / 1000000).toLocaleString('vi-VN', {
-          minimumFractionDigits: 0,
-          maximumFractionDigits: 1,
-        })
-      : null;
-
-    const priceText = maxMillion ? `${minMillion}-${maxMillion}` : minMillion;
-
-    let bgClass = '';
-    let caretColor = '';
-
-    if (isSelected) {
-      bgClass = 'bg-indigo-600 text-white border-2 border-white ring-4 ring-indigo-100 scale-110 shadow-xl font-extrabold z-[1000]';
-      caretColor = 'bg-indigo-600 border-indigo-600';
-    } else if (isMatchingFilter) {
-      // NẰM TRONG BÁN KÍNH: Có màu xanh lá cây ngọc (Emerald) cực kỳ nổi bật, tượng trưng cho việc đạt chuẩn bán kính gần trường!
-      bgClass = 'bg-emerald-500 text-white border-2 border-white shadow-md hover:scale-105 hover:bg-emerald-600 font-extrabold z-[500] scale-105';
-      caretColor = 'bg-emerald-500 border-emerald-500';
-    } else {
-      // NẰM NGOÀI BÁN KÍNH: Vẫn hiển thị sắc nét nổi bật, không mờ, nhưng dùng màu trắng thanh lịch để phân biệt
-      bgClass = 'bg-white text-slate-800 border-2 border-slate-700 shadow-md hover:scale-105 hover:border-indigo-600 hover:text-indigo-600 font-bold z-[100] scale-100';
-      caretColor = 'bg-white border-slate-700';
-    }
-
-    return L.divIcon({
-      className: 'custom-leaflet-marker', // Thêm class rỗng để tránh vỡ CSS mặc định
-      html: `
-        <div class="relative group select-none flex flex-col items-center">
-          <div class="flex items-center gap-1 font-sans text-xs rounded-xl px-2.5 py-1.5 border shadow-sm transition-all duration-150 whitespace-nowrap cursor-pointer ${bgClass}">
-            <span>${priceText}Tr</span>
-            <span class="text-[10px] text-indigo-500 group-hover:text-indigo-600 select-none opacity-90">⌂</span>
-          </div>
-          <!-- Mũi tên chỉ xuống -->
-          <div class="w-2 h-2 -mt-1 rotate-45 border-r border-b shadow-sm ${caretColor}"></div>
-        </div>
-      `,
-      iconSize: [68, 36],
-      iconAnchor: [34, 30],
-      popupAnchor: [0, -28],
-    });
-  };
-
-  // Tạo icon tùy chỉnh cho trường Đại học trung tâm
-  const universityIcon = L.divIcon({
-    className: 'custom-uni-marker',
-    html: `
-      <div class="flex flex-col items-center">
-        <div class="w-4 h-4 bg-red-500 rounded-full ring-4 ring-red-100 shadow-md"></div>
-      </div>
-    `,
-    iconSize: [32, 32],
-    iconAnchor: [16, 16],
-    popupAnchor: [0, -8],
-  });
-
-  // Tạo icon tùy chỉnh cho điểm trung tâm di động ghim tùy ý (bản đồ kéo thả)
-  const customCenterIcon = L.divIcon({
-    className: 'custom-center-marker',
-    html: `
-      <div class="flex flex-col items-center relative">
-        <div class="absolute -top-[14px] w-8 h-8 bg-indigo-500/30 rounded-full animate-ping pointer-events-none"></div>
-        <div class="w-8 h-8 bg-indigo-600 rounded-full ring-4 ring-indigo-100 shadow-lg flex items-center justify-center text-white border border-white font-bold select-none text-sm leading-none">
-          🎯
-        </div>
-        <div class="w-2.5 h-2.5 bg-indigo-600 border-r border-b border-indigo-600 rotate-45 -mt-1 shadow-sm"></div>
-      </div>
-    `,
-    iconSize: [36, 36],
-    iconAnchor: [18, 32],
-  });
+  const customPinRef = useRef<any>(null);
 
   const handleShare = (room: Room) => {
     const priceFormatted = room.priceMax && room.priceMax > room.price
@@ -165,199 +153,225 @@ export default function MapComponent({
     setTimeout(() => setShareSuccess(null), 3000);
   };
 
+  // Xác định trường đại học đang chọn để lấy tọa độ làm tâm điểm vẽ hình tròn
+  const selectedUni = universities.find((u) => u.id === filters.universityId);
+
+  // Lắng nghe hành vi kéo thả ghim quét tùy ý
+  const customPinEventHandlers = useMemo(
+    () => ({
+      dragend() {
+        const marker = customPinRef.current;
+        if (marker != null) {
+          const latLng = marker.getLatLng();
+          onScanCenterChange([latLng.lat, latLng.lng]);
+        }
+      },
+    }),
+    [onScanCenterChange]
+  );
+
   return (
     <div className="w-full h-full relative" id="leaflet-map-container">
       <MapContainer
         center={mapCenter}
         zoom={mapZoom}
-        className="w-full h-full z-0"
-        zoomControl={false} // Tự custom nút zoom hoặc dùng nút của Leaflet ở vị trí khác cho đẹp
-        ref={setMapInstance}
+        className="w-full h-full"
+        zoomControl={false}
       >
-        {/* Bản đồ OpenStreetMap miễn phí, tải nhanh, không cần API Key */}
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> đóng góp'
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        {/* Cập nhật tâm của bản đồ khi mapCenter thay đổi */}
-        <ChangeMapView center={mapCenter} zoom={mapZoom} />
+        {/* Cập nhật tâm và giới hạn quét bản đồ thông minh */}
+        <LeafletMapController
+          scanCenter={scanCenter}
+          radius={filters.radius}
+          isFilterOpen={isFilterOpen}
+          selectedRoom={selectedRoom}
+          mapCenter={mapCenter}
+          mapZoom={mapZoom}
+        />
 
-        {/* Vòng tròn bán kính tìm kiếm (Circle) - Luôn vẽ quanh scanCenter */}
+        {/* Vòng tròn hiển thị bán kính tìm kiếm (màu Indigo đồng bộ UniStay) */}
         <Circle
           center={scanCenter}
           radius={filters.radius}
           pathOptions={{
-            color: '#6366f1', // màu indigo-500
-            fillColor: '#818cf8', // màu indigo-400
-            fillOpacity: 0.12,
+            color: '#6366f1',
             weight: 1.5,
-            dashArray: '5, 5',
+            opacity: 0.85,
+            fillColor: '#818cf8',
+            fillOpacity: 0.12,
           }}
         />
 
-        {/* Marker đại diện cho Trường Đại học đang chọn làm tâm quét */}
+        {/* Marker đại diện cho Trường Đại học trọng tâm đã chọn */}
         {selectedUni && (
-          <Marker position={[selectedUni.lat, selectedUni.lng]} icon={universityIcon}>
-            <Popup closeButton={false}>
-              <div className="p-3 bg-white max-w-[200px] rounded-lg">
-                <span className="text-[10px] bg-rose-50 text-rose-600 font-bold px-1.5 py-0.5 rounded">
-                  Trường đại học trọng tâm
-                </span>
-                <h4 className="font-bold text-slate-900 text-xs mt-1.5">{selectedUni.name}</h4>
-                <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">{selectedUni.address}</p>
-              </div>
-            </Popup>
-          </Marker>
+          <Marker
+            position={[selectedUni.lat, selectedUni.lng]}
+            icon={uniIcon}
+          />
         )}
 
-        {/* Điểm quét tự do kéo thả khi chọn chế độ "Ghim điểm tùy ý" */}
+        {/* Tâm quét tự do di chuyển khi chọn ghim điểm tùy ý */}
         {filters.universityId === 'custom_pin' && (
           <Marker
+            ref={customPinRef}
             position={scanCenter}
-            icon={customCenterIcon}
             draggable={true}
-            eventHandlers={{
-              dragend: (e) => {
-                const marker = e.target;
-                if (marker) {
-                  const position = marker.getLatLng();
-                  onScanCenterChange([position.lat, position.lng]);
-                }
-              }
-            }}
-          >
-            <Popup closeButton={false}>
-              <div className="p-3 bg-white max-w-[200px] rounded-lg">
-                <span className="text-[10px] bg-indigo-50 text-indigo-600 font-bold px-1.5 py-0.5 rounded">
-                  Tâm quét di động
-                </span>
-                <h4 className="font-bold text-slate-900 text-xs mt-1.5">🎯 Ghim quét tùy ý</h4>
-                <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">
-                  Bạn có thể kéo thả ghim này sang vị trí bất kỳ để tìm phòng trọ xung quanh vị trí đó!
-                </p>
-              </div>
-            </Popup>
-          </Marker>
+            eventHandlers={customPinEventHandlers}
+            icon={customPinIcon}
+          />
         )}
 
-        {/* Danh sách các Marker Phòng Trọ */}
+        {/* Danh sách các phòng trọ với mức giá Airbnb-style cao cấp */}
         {rooms.map((room) => {
           const isSelected = selectedRoom?.id === room.id;
           const isMatchingFilter = filteredRooms.some((r) => r.id === room.id);
+
+          const minMillion = (room.price / 1000000).toLocaleString('vi-VN', {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 1,
+          });
+          const maxMillion = room.priceMax && room.priceMax > room.price
+            ? (room.priceMax / 1000000).toLocaleString('vi-VN', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 1,
+              })
+            : null;
+          const priceText = maxMillion ? `${minMillion}-${maxMillion}` : minMillion;
+
+          let bgClass = '';
+          let caretColor = '';
+
+          if (isSelected) {
+            bgClass = 'bg-indigo-600 text-white border-2 border-white ring-4 ring-indigo-100 scale-110 shadow-xl font-extrabold';
+            caretColor = 'bg-indigo-600 border-indigo-600';
+          } else if (isMatchingFilter) {
+            bgClass = 'bg-emerald-500 text-white border-2 border-white shadow-md hover:scale-105 hover:bg-emerald-600 font-extrabold scale-105';
+            caretColor = 'bg-emerald-500 border-emerald-500';
+          } else {
+            bgClass = 'bg-white text-slate-800 border-2 border-slate-700 shadow-md hover:scale-105 hover:border-indigo-600 hover:text-indigo-600 font-bold scale-100';
+            caretColor = 'bg-white border-slate-700';
+          }
+
+          const priceIcon = createPriceMarkerIcon(priceText, bgClass, caretColor);
+
           return (
             <Marker
               key={room.id}
               position={[room.lat, room.lng]}
-              icon={createPriceIcon(room, isSelected, isMatchingFilter)}
+              icon={priceIcon}
               eventHandlers={{
-                click: () => {
-                  onRoomSelect(room);
-                },
-                popupclose: () => {
-                  onRoomSelect(null);
-                },
+                click: () => onRoomSelect(room),
               }}
             >
-              {/* Popup chi tiết phòng trọ thiết kế bo góc, tinh tế, đẹp mắt */}
-              <Popup closeButton={false} autoPan={true}>
-                <div className="w-[280px] bg-white rounded-2xl overflow-hidden font-sans relative border border-slate-100 shadow-xl">
-                  {/* Ảnh phòng trọ */}
-                  <div className="relative h-36 w-full bg-slate-100 overflow-hidden">
-                    <img
-                      src={room.image}
-                      alt={room.title}
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
-                    {room.gender && (
-                      <span className="absolute bottom-3 left-3 px-2 py-0.5 text-[9px] font-bold bg-white/95 text-slate-800 rounded-md shadow-sm">
-                        👫 {room.gender}
-                      </span>
-                    )}
-                    {room.area && room.area > 0 && (
-                      <span className="absolute bottom-3 right-3 px-2 py-0.5 text-[9px] font-extrabold bg-indigo-600 text-white rounded-md shadow-sm">
-                        {room.area} m²
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Chi tiết nội dung */}
-                  <div className="p-4 space-y-3.5 text-left">
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                        Mã: {room.id}
-                      </span>
-                      <h3 className="text-base font-bold text-slate-800 leading-tight mt-1 line-clamp-2">
-                        {room.title}
-                      </h3>
-                      <p className="text-xs text-slate-500 mt-1.5 flex items-start gap-1">
-                        <MapPin size={13} className="shrink-0 text-slate-400 mt-0.5" />
-                        <span className="line-clamp-2 leading-tight">{room.address}</span>
-                      </p>
-                    </div>
-
-                    {/* Giá cả nổi bật */}
-                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                      <div className="flex flex-col">
-                        <span className="text-[9px] text-slate-400 uppercase tracking-wider font-bold">Giá thuê</span>
-                        <span className="text-base font-bold text-violet-600 leading-none mt-0.5">
-                          {room.priceMax && room.priceMax > room.price
-                            ? `${room.price.toLocaleString('vi-VN')} - ${room.priceMax.toLocaleString('vi-VN')}`
-                            : room.price.toLocaleString('vi-VN')}{" "}
-                          <span className="text-xs font-semibold">/tháng</span>
+              {isSelected && (
+                <Popup
+                  position={[room.lat, room.lng]}
+                  onClose={() => onRoomSelect(null)}
+                  maxWidth={280}
+                  className="custom-leaflet-popup"
+                >
+                  <div className="w-[250px] bg-white rounded-2xl overflow-hidden font-sans relative text-slate-800">
+                    {/* Ảnh phòng trọ */}
+                    <div className="relative h-28 w-full bg-slate-100 overflow-hidden">
+                      <img
+                        src={room.image}
+                        alt={room.title}
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                      {room.gender && (
+                        <span className="absolute bottom-2 left-2 px-1.5 py-0.5 text-[8px] font-bold bg-white/95 text-slate-800 rounded shadow-sm">
+                          👫 {room.gender}
                         </span>
-                      </div>
+                      )}
+                      {room.area && room.area > 0 && (
+                        <span className="absolute bottom-2 right-2 px-1.5 py-0.5 text-[8px] font-extrabold bg-indigo-600 text-white rounded shadow-sm">
+                          {room.area} m²
+                        </span>
+                      )}
                     </div>
 
-                    {/* Nút chức năng ở góc dưới */}
-                    <div className="space-y-2 pt-2">
-                      {/* Nút Xem chi tiết chính */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          onViewDetail(room);
-                        }}
-                        className="w-full py-2 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-indigo-100"
-                      >
-                        <span>👁️ Xem chi tiết phòng</span>
-                      </button>
+                    {/* Chi tiết nội dung */}
+                    <div className="p-3 space-y-2 text-left">
+                      <div>
+                        <span className="text-[8px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                          Mã: {room.id}
+                        </span>
+                        <h3 className="text-xs font-bold text-slate-800 leading-tight mt-0.5 line-clamp-2">
+                          {room.title}
+                        </h3>
+                        <p className="text-[10px] text-slate-500 mt-1 flex items-start gap-1">
+                          <MapPin size={10} className="shrink-0 text-slate-400 mt-0.5" />
+                          <span className="line-clamp-2 leading-tight">{room.address}</span>
+                        </p>
+                      </div>
 
-                      <div className="flex gap-1.5">
+                      {/* Giá cả nổi bật */}
+                      <div className="pt-1.5 border-t border-slate-100 flex items-center justify-between">
+                        <div className="flex flex-col">
+                          <span className="text-[8px] text-slate-400 uppercase tracking-wider font-extrabold">Giá thuê</span>
+                          <span className="text-xs font-bold text-indigo-600 leading-none mt-0.5">
+                            {room.priceMax && room.priceMax > room.price
+                              ? `${room.price.toLocaleString('vi-VN')} - ${room.priceMax.toLocaleString('vi-VN')}`
+                              : room.price.toLocaleString('vi-VN')}{" "}
+                            <span className="text-[9px] font-semibold">/tháng</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Nút chức năng ở góc dưới */}
+                      <div className="space-y-1 pt-1">
+                        {/* Nút Xem chi tiết chính */}
                         <button
                           type="button"
-                          onClick={() => handleShare(room)}
-                          className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition-colors shrink-0 cursor-pointer"
-                          title={shareSuccess === room.id ? 'Đã sao chép!' : 'Chia sẻ thông tin phòng'}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            onViewDetail(room);
+                          }}
+                          className="w-full py-1.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer shadow-md shadow-indigo-100"
                         >
-                          <Share2 size={13} className={shareSuccess === room.id ? 'text-green-600' : ''} />
+                          <span>👁️ Xem chi tiết phòng</span>
                         </button>
 
-                        <a
-                          href={room.zalo && (room.zalo.startsWith('http') || room.zalo.includes('zalo.me')) ? room.zalo : `https://zalo.me/${room.zalo || room.phone || '0987654321'}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex-1 py-2 px-4 rounded-xl bg-[#0068ff] hover:bg-[#0056d6] text-white !text-white font-bold text-xs text-center transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-blue-200/50 hover:shadow-lg transform active:scale-95 duration-150"
-                          style={{ color: '#ffffff' }}
-                        >
-                          <MessageSquare size={13} className="text-white" style={{ color: '#ffffff' }} />
-                          <span className="text-white font-extrabold" style={{ color: '#ffffff' }}>Nhắn Zalo</span>
-                        </a>
+                        <div className="flex gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleShare(room)}
+                            className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition-colors shrink-0 cursor-pointer"
+                            title={shareSuccess === room.id ? 'Đã sao chép!' : 'Chia sẻ thông tin phòng'}
+                          >
+                            <Share2 size={10} className={shareSuccess === room.id ? 'text-green-600' : ''} />
+                          </button>
+
+                          <a
+                            href={room.zalo && (room.zalo.startsWith('http') || room.zalo.includes('zalo.me')) ? room.zalo : `https://zalo.me/${room.zalo || room.phone || '0987654321'}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 py-1 px-2.5 rounded-lg bg-[#0068ff] hover:bg-[#0056d6] text-white !text-white font-bold text-[10px] text-center transition-all flex items-center justify-center gap-1 cursor-pointer shadow-sm"
+                            style={{ color: '#ffffff' }}
+                          >
+                            <MessageSquare size={10} className="text-white" style={{ color: '#ffffff' }} />
+                            <span className="text-white font-extrabold" style={{ color: '#ffffff' }}>Zalo</span>
+                          </a>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              </Popup>
+                </Popup>
+              )}
             </Marker>
           );
         })}
       </MapContainer>
 
-      {/* Thông báo hướng dẫn di chuột hoặc định vị */}
+      {/* Ghi chú hướng dẫn ở góc bản đồ */}
       <div className="absolute bottom-5 right-5 z-[500] pointer-events-none hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-slate-900/90 backdrop-blur-md text-[10px] font-semibold text-white rounded-xl shadow-lg border border-slate-700/50 animate-fade-in">
-        <BadgeInfo size={12} className="text-purple-400" />
-        <span>Ghim hiển thị mức giá phòng. Nhấp vào ghim để xem chi tiết!</span>
+        <BadgeInfo size={12} className="text-indigo-400" />
+        <span>Ghim mức giá phòng. Nhấn để xem nhanh hoặc kéo thả ghim quét 🎯</span>
       </div>
     </div>
   );

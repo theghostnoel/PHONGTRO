@@ -7,7 +7,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import L from 'leaflet';
 import { 
   X, Plus, Edit2, Trash2, MapPin, Upload, Link, Check, AlertCircle, Save, 
-  ChevronRight, RefreshCw, Eye, Image as ImageIcon, Search, ShieldCheck, GraduationCap
+  ChevronRight, RefreshCw, Eye, Image as ImageIcon, Search, ShieldCheck, GraduationCap,
+  Settings
 } from 'lucide-react';
 import { Room, University } from '../types';
 
@@ -21,6 +22,8 @@ interface AdminDashboardProps {
   onSelectRoomOnMap: (room: Room) => void;
   universities: University[];
   onAddUniversity: (uni: University) => Promise<{ success: boolean; message?: string }> | any;
+  feedbackUrl: string;
+  onUpdateFeedbackUrl: (url: string) => Promise<void> | void;
 }
 
 // Hàm phân tích và dọn dẹp địa chỉ để tạo danh sách các chuỗi tìm kiếm từ chi tiết đến tổng quát cho OSM Nominatim
@@ -103,9 +106,20 @@ export default function AdminDashboard({
   onSelectRoomOnMap,
   universities,
   onAddUniversity,
+  feedbackUrl,
+  onUpdateFeedbackUrl,
 }: AdminDashboardProps) {
-  // Quản lý Tab: 'rooms' (Quản lý phòng trọ) | 'universities' (Quản lý trường học)
-  const [activeTab, setActiveTab] = useState<'rooms' | 'universities'>('rooms');
+  // Quản lý Tab: 'rooms' (Quản lý phòng trọ) | 'universities' (Quản lý trường học) | 'settings' (Cài đặt hệ thống)
+  const [activeTab, setActiveTab] = useState<'rooms' | 'universities' | 'settings'>('rooms');
+
+  // State quản lý feedback link
+  const [tempFeedbackUrl, setTempFeedbackUrl] = useState(feedbackUrl);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+  const [settingsSuccess, setSettingsSuccess] = useState('');
+
+  useEffect(() => {
+    setTempFeedbackUrl(feedbackUrl);
+  }, [feedbackUrl]);
 
   // State quản lý danh sách và form phòng
   const [searchTerm, setSearchTerm] = useState('');
@@ -596,6 +610,13 @@ export default function AdminDashboard({
             className={`px-4 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer ${activeTab === 'universities' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' : 'text-slate-600 hover:bg-slate-200'}`}
           >
             🎓 Quản lý Trường Đại học
+          </button>
+          <button
+            type="button"
+            onClick={() => { setActiveTab('settings'); setIsEditing(false); }}
+            className={`px-4 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' : 'text-slate-600 hover:bg-slate-200'}`}
+          >
+            ⚙️ Cấu hình hệ thống
           </button>
         </div>
 
@@ -1266,7 +1287,7 @@ export default function AdminDashboard({
                 <span className="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded font-bold uppercase tracking-wider">Cập nhật tức thì</span>
               </div>
             </div>
-          )) : (
+          )) : activeTab === 'universities' ? (
             /* --- QUẢN LÝ TRƯỜNG ĐẠI HỌC (ĐỒNG BỘ REAL-TIME) --- */
             <div className="flex-1 flex flex-col md:flex-row h-full overflow-hidden bg-slate-50 animate-fade-in">
               {/* Form thêm trường đại học ở bên trái */}
@@ -1489,6 +1510,70 @@ export default function AdminDashboard({
                       ))}
                     </tbody>
                   </table>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* --- CẤU HÌNH HỆ THỐNG --- */
+            <div className="flex-1 p-8 bg-slate-50 overflow-y-auto space-y-6">
+              <div className="max-w-2xl bg-white p-6 rounded-2xl border border-slate-200/60 shadow-sm space-y-5">
+                <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
+                  <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
+                    <Settings size={18} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider">Cấu hình chung hệ thống</h3>
+                    <p className="text-[11px] text-slate-400">Điều chỉnh các liên kết động và cài đặt vận hành</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-700 block">Đường liên kết Góp ý & Đăng ký thêm phòng</label>
+                    <p className="text-[11px] text-slate-400 leading-relaxed">
+                      Địa chỉ URL biểu mẫu (Google Forms, Microsoft Forms, v.v.) sẽ mở ra khi người dùng bấm nút "Góp ý & Thêm phòng" ở góc trên màn hình để góp ý thêm phòng, chỉnh sửa hoặc báo lỗi bản đồ.
+                    </p>
+                    <input
+                      type="url"
+                      value={tempFeedbackUrl}
+                      onChange={(e) => setTempFeedbackUrl(e.target.value)}
+                      placeholder="Ví dụ: https://forms.gle/..."
+                      className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:bg-white focus:outline-none rounded-xl font-bold transition-all"
+                    />
+                  </div>
+
+                  {settingsSuccess && (
+                    <div className="p-3 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-xl text-xs font-semibold">
+                      {settingsSuccess}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={isSavingSettings || !tempFeedbackUrl.trim()}
+                    onClick={async () => {
+                      setIsSavingSettings(true);
+                      setSettingsSuccess('');
+                      try {
+                        await onUpdateFeedbackUrl(tempFeedbackUrl.trim());
+                        setSettingsSuccess('✅ Cập nhật đường link góp ý thành công và đồng bộ tức thì!');
+                        setTimeout(() => setSettingsSuccess(''), 4500);
+                      } catch (err) {
+                        console.error(err);
+                        setSettingsSuccess('❌ Lỗi cập nhật liên kết. Vui lòng thử lại!');
+                      } finally {
+                        setIsSavingSettings(false);
+                      }
+                    }}
+                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-extrabold shadow-md shadow-indigo-100 cursor-pointer transition-all flex items-center gap-1.5"
+                  >
+                    {isSavingSettings ? (
+                      <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <Save size={13} />
+                    )}
+                    Lưu cấu hình hệ thống
+                  </button>
                 </div>
               </div>
             </div>
