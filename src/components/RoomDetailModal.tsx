@@ -208,21 +208,21 @@ export default function RoomDetailModal({ room, isOpen, onClose, isAdminLoggedIn
               <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">Thông tin liên hệ chủ nhà</h3>
               
               {/* Box Hướng dẫn cú pháp Zalo */}
-              <div className="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-4 space-y-3 animate-fade-in">
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-3 animate-scale-in">
                 <div className="flex items-start gap-2.5">
-                  <span className="text-lg leading-none mt-0.5 select-none">💡</span>
-                  <div className="space-y-1">
-                    <p className="text-xs font-extrabold text-indigo-900 uppercase tracking-wide">Cú pháp nhắn tin Zalo mẫu</p>
-                    <p className="text-[11px] font-medium text-indigo-700/90 leading-relaxed">
-                      Để được phản hồi nhanh nhất, bạn vui lòng sao chép cú pháp <span className="font-bold underline">Mã phòng + Địa chỉ + Giá thuê</span> bên dưới và gửi khi liên hệ qua Zalo cho chủ nhà nhé:
+                  <span className="text-base leading-none mt-0.5 select-none">💬</span>
+                  <div className="space-y-0.5">
+                    <p className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Mẫu tin nhắn gửi chủ nhà</p>
+                    <p className="text-[11px] font-medium text-slate-500 leading-relaxed">
+                      Sao chép mẫu thông tin dưới đây gửi qua Zalo để chủ nhà nhận diện chính xác phòng bạn cần thuê nhanh nhất:
                     </p>
                   </div>
                 </div>
                 
-                <div className="flex items-center gap-2 bg-white border border-indigo-100 rounded-xl p-2.5 pl-3.5 shadow-sm">
-                  <code className="text-xs font-mono font-bold text-indigo-600 truncate flex-1 select-all" title={syntaxText}>
+                <div className="flex items-center gap-2.5 bg-white border border-slate-200/80 rounded-xl p-2 pl-3.5 shadow-sm hover:border-slate-300 transition-colors duration-300">
+                  <span className="text-xs font-sans font-bold text-slate-700 truncate flex-1 select-all" title={syntaxText}>
                     {syntaxText}
-                  </code>
+                  </span>
                   <button
                     type="button"
                     onClick={() => {
@@ -230,13 +230,13 @@ export default function RoomDetailModal({ room, isOpen, onClose, isAdminLoggedIn
                       setSyntaxCopied(true);
                       setTimeout(() => setSyntaxCopied(false), 2000);
                     }}
-                    className={`px-3 py-1.5 text-[10px] font-extrabold rounded-lg transition-all cursor-pointer shadow-sm select-none shrink-0 ${
+                    className={`px-3 py-1.5 text-[10px] font-extrabold rounded-lg transition-all duration-300 cursor-pointer shadow-sm select-none shrink-0 active:scale-95 ${
                       syntaxCopied 
                         ? 'bg-emerald-600 text-white shadow-emerald-100' 
-                        : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-100'
+                        : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-indigo-100/50'
                     }`}
                   >
-                    {syntaxCopied ? 'Đã sao chép!' : 'Sao chép cú pháp'}
+                    {syntaxCopied ? 'Đã sao chép!' : 'Sao chép tin mẫu'}
                   </button>
                 </div>
               </div>

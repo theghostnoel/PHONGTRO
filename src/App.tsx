@@ -16,7 +16,7 @@ import AdminDashboard from './components/AdminDashboard';
 import RoomDetailModal from './components/RoomDetailModal';
 import { Room, University, SearchFilters } from './types';
 import { getDistance } from './data/rooms';
-import { ShieldAlert, Info, MapPin } from 'lucide-react';
+import { ShieldAlert, Info, MapPin, Filter } from 'lucide-react';
 import {
   seedFirestoreIfNeeded,
   subscribeRooms,
@@ -61,6 +61,12 @@ export default function App() {
   const [detailedRoom, setDetailedRoom] = useState<Room | null>(null);
   const [mapCenter, setMapCenter] = useState<[number, number]>([21.0016, 105.8428]); // Mặc định là NEU
   const [mapZoom, setMapZoom] = useState<number>(15);
+  const [isFilterOpen, setIsFilterOpen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 640;
+    }
+    return true;
+  });
 
   // Hàm tải dữ liệu đồng bộ từ server API (Làm dự phòng nếu Firestore không khả dụng)
   const fetchAllData = useCallback(async () => {
@@ -462,12 +468,17 @@ export default function App() {
             universities={universities}
             scanCenter={scanCenter}
             onScanCenterChange={setScanCenter}
+            isFilterOpen={isFilterOpen}
           />
         </div>
 
         {/* Floating Controls Overlay (Sleek Theme) */}
         <div 
-          className="absolute top-6 left-6 z-[1000] w-[92%] sm:w-auto max-w-md pointer-events-none flex flex-col gap-4"
+          className={`absolute top-4 sm:top-6 left-4 sm:left-6 z-[1000] w-[calc(100%-2rem)] sm:w-auto max-w-md pointer-events-none flex flex-col gap-4 transition-all duration-300 ${
+            isFilterOpen 
+              ? 'translate-y-0 opacity-100 pointer-events-auto' 
+              : '-translate-y-full opacity-0 pointer-events-none'
+          }`}
           id="control-panels-overlay"
         >
           {/* User Filter SearchPanel */}
@@ -485,6 +496,7 @@ export default function App() {
             isGeocoding={isGeocoding}
             onGeocodeCustomAddress={handleGeocodeCustomAddress}
             geocodeError={geocodeError}
+            onCloseMobile={() => setIsFilterOpen(false)}
           />
 
           {/* Connected Admin Mini Badge */}
@@ -506,6 +518,19 @@ export default function App() {
             </div>
           )}
         </div>
+
+        {/* Filter Toggle Button */}
+        {!isFilterOpen && (
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-[1000] pointer-events-auto animate-fade-in-up">
+            <button
+              onClick={() => setIsFilterOpen(true)}
+              className="flex items-center gap-2 px-6 py-3.5 bg-indigo-600/95 backdrop-blur-md hover:bg-indigo-600 active:scale-95 text-white text-xs font-extrabold rounded-full shadow-2xl border border-indigo-400/30 shadow-indigo-500/30 transition-all duration-300 cursor-pointer whitespace-nowrap hover:scale-105 hover:shadow-indigo-500/40 pulse-glow"
+            >
+              <Filter size={14} className="animate-bounce" />
+              Mở bộ lọc & Tìm kiếm ({filteredRooms.length})
+            </button>
+          </div>
+        )}
       </main>
 
       {/* 3. BOTTOM BRANDING/FOOTER OVERLAY */}

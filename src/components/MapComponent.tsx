@@ -34,6 +34,7 @@ interface MapComponentProps {
   universities: University[];
   scanCenter: [number, number];
   onScanCenterChange: (center: [number, number]) => void;
+  isFilterOpen?: boolean;
 }
 
 export default function MapComponent({
@@ -48,9 +49,30 @@ export default function MapComponent({
   universities,
   scanCenter,
   onScanCenterChange,
+  isFilterOpen = true,
 }: MapComponentProps) {
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [shareSuccess, setShareSuccess] = useState<string | null>(null);
+
+  // Tự động điều chỉnh góc nhìn bản đồ để hiển thị trọn vẹn vòng tròn bán kính tìm kiếm
+  useEffect(() => {
+    if (mapInstance && scanCenter && !selectedRoom) {
+      // Tính toán bounds của hình tròn dựa trên tâm quét và bán kính (mét)
+      const bounds = L.latLng(scanCenter).toBounds(filters.radius);
+      
+      const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
+      // Nếu bộ lọc đang mở thì dịch chuyển tâm hiển thị để không bị bảng đè lên
+      const paddingLeft = (!isMobile && isFilterOpen) ? 380 : 40;
+      const paddingTop = (isMobile && isFilterOpen) ? 180 : 40;
+      
+      mapInstance.fitBounds(bounds, {
+        animate: true,
+        duration: 0.8,
+        paddingTopLeft: [paddingLeft, paddingTop],
+        paddingBottomRight: [40, 40],
+      });
+    }
+  }, [mapInstance, scanCenter, filters.radius, selectedRoom, isFilterOpen]);
 
   // Tìm thông tin trường đại học đang chọn để lấy tọa độ làm tâm điểm Circle
   const selectedUni = universities.find((u) => u.id === filters.universityId);
