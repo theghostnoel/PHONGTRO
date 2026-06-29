@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Plus, Minus, School, DollarSign, Locate, Filter, LogIn, LogOut, Check, MapPin, Loader2, X } from 'lucide-react';
+import { Search, Plus, Minus, School, DollarSign, Locate, Filter, LogIn, LogOut, Check, MapPin, Loader2, X, ChevronDown, GraduationCap } from 'lucide-react';
 import { University, SearchFilters } from '../types';
 
 interface SearchPanelProps {
@@ -43,17 +43,87 @@ export default function SearchPanel({
 }: SearchPanelProps) {
   
   const [localSearchQuery, setLocalSearchQuery] = React.useState(filters.searchQuery);
+  const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
+  const [uniSearchQuery, setUniSearchQuery] = React.useState('');
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
 
   // Đồng bộ hóa localSearchQuery khi bộ lọc bên ngoài thay đổi (ví dụ: nhấn nút "Đặt lại bộ lọc")
   React.useEffect(() => {
     setLocalSearchQuery(filters.searchQuery);
   }, [filters.searchQuery]);
 
-  const handleUniversityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  // Đóng dropdown khi click bên ngoài
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDropdownOpen]);
+
+  // Tự động focus vào ô tìm kiếm khi mở dropdown
+  React.useEffect(() => {
+    if (isDropdownOpen && searchInputRef.current) {
+      setTimeout(() => {
+        searchInputRef.current?.focus();
+      }, 50);
+    }
+  }, [isDropdownOpen]);
+
+  const removeAccents = (str: string) => {
+    return str
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/Đ/g, 'D');
+  };
+
+  const filteredUnis = React.useMemo(() => {
+    if (!uniSearchQuery.trim()) return universities;
+    const cleanQuery = removeAccents(uniSearchQuery.toLowerCase().trim());
+    return [...universities].sort((a, b) => {
+      const cleanNameA = removeAccents(a.name.toLowerCase());
+      const cleanShortA = removeAccents(a.shortName.toLowerCase());
+      const cleanNameB = removeAccents(b.name.toLowerCase());
+      const cleanShortB = removeAccents(b.shortName.toLowerCase());
+
+      const aMatchShort = cleanShortA.startsWith(cleanQuery);
+      const bMatchShort = cleanShortB.startsWith(cleanQuery);
+      if (aMatchShort && !bMatchShort) return -1;
+      if (!aMatchShort && bMatchShort) return 1;
+
+      const aIncludesShort = cleanShortA.includes(cleanQuery);
+      const bIncludesShort = cleanShortB.includes(cleanQuery);
+      if (aIncludesShort && !bIncludesShort) return -1;
+      if (!aIncludesShort && bIncludesShort) return 1;
+
+      const aMatchName = cleanNameA.includes(cleanQuery);
+      const bMatchName = cleanNameB.includes(cleanQuery);
+      if (aMatchName && !bMatchName) return -1;
+      if (!aMatchName && bMatchName) return 1;
+
+      return 0;
+    }).filter(uni => {
+      const cleanName = removeAccents(uni.name.toLowerCase());
+      const cleanShortName = removeAccents(uni.shortName.toLowerCase());
+      return cleanName.includes(cleanQuery) || cleanShortName.includes(cleanQuery);
+    });
+  }, [universities, uniSearchQuery]);
+
+  const handleUniversitySelect = (uniId: string) => {
     onFiltersChange({
       ...filters,
-      universityId: e.target.value,
+      universityId: uniId,
     });
+    setIsDropdownOpen(false);
+    setUniSearchQuery('');
   };
 
   const handleRadiusChange = (amount: number) => {
@@ -141,25 +211,132 @@ export default function SearchPanel({
       </div>
 
       {/* University Center Selector */}
-      <div className="space-y-2">
+      <div className="space-y-2" ref={dropdownRef}>
         <label className="block text-xs font-bold text-slate-400 uppercase">Điểm trung tâm quét bán kính</label>
-        <div className="relative group">
-          <select
-            value={filters.universityId}
-            onChange={handleUniversityChange}
-            className="w-full appearance-none bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl px-4 py-3 text-sm font-bold focus:border-indigo-500 focus:bg-white outline-none cursor-pointer text-slate-700 transition-all duration-300 focus:ring-4 focus:ring-indigo-100/50"
+        <div className="relative">
+          {/* Main Selector Button */}
+          <button
+            type="button"
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            className="w-full bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl px-4 py-3 text-sm font-bold focus:border-indigo-500 focus:bg-white outline-none cursor-pointer text-slate-700 transition-all duration-300 focus:ring-4 focus:ring-indigo-100/50 flex items-center justify-between shadow-sm"
           >
-            {universities.map((uni) => (
-              <option key={uni.id} value={uni.id}>
-                🎓 {uni.name} ({uni.shortName})
-              </option>
-            ))}
-            <option value="custom_pin">🎯 Ghim điểm tùy ý (Kéo thả ghim)</option>
-            <option value="other">📍 Khác (Nhập địa chỉ tự do)</option>
-          </select>
-          <div className="absolute right-3 top-3.5 text-slate-400 pointer-events-none group-hover:text-slate-600 transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m6 9 6 6 6-6"/></svg>
-          </div>
+            <span className="flex items-center gap-2 truncate">
+              {filters.universityId === 'custom_pin' ? (
+                <>🎯 Ghim điểm tùy ý (Kéo thả ghim)</>
+              ) : filters.universityId === 'other' ? (
+                <>📍 Khác (Nhập địa chỉ tự do)</>
+              ) : selectedUni ? (
+                <>🎓 {selectedUni.name} ({selectedUni.shortName})</>
+              ) : (
+                <>Chọn điểm trung tâm...</>
+              )}
+            </span>
+            <ChevronDown size={16} className={`text-slate-400 transition-transform duration-300 ${isDropdownOpen ? 'rotate-180 text-indigo-500' : ''}`} />
+          </button>
+
+          {/* Dropdown Popover */}
+          <AnimatePresence>
+            {isDropdownOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+                className="absolute left-0 right-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-2xl z-[1002] flex flex-col overflow-hidden max-h-[350px]"
+              >
+                {/* Search Input inside Dropdown */}
+                <div className="p-2.5 border-b border-slate-100 bg-slate-50 flex items-center gap-2 sticky top-0">
+                  <Search size={14} className="text-slate-400 shrink-0 ml-1" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={uniSearchQuery}
+                    onChange={(e) => setUniSearchQuery(e.target.value)}
+                    placeholder="Tìm nhanh (ví dụ: NEU, FTU, Kinh tế...)"
+                    className="w-full bg-transparent text-xs font-bold border-none outline-none text-slate-700 placeholder-slate-400"
+                  />
+                  {uniSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setUniSearchQuery('')}
+                      className="p-1 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                    >
+                      <X size={12} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Options List */}
+                <div className="flex-1 overflow-y-auto p-1.5 space-y-0.5 max-h-[250px] scrollbar-thin scrollbar-thumb-slate-200">
+                  {/* Universities list */}
+                  {filteredUnis.length > 0 ? (
+                    filteredUnis.map((uni) => {
+                      const isSelected = filters.universityId === uni.id;
+                      return (
+                        <button
+                          key={uni.id}
+                          type="button"
+                          onClick={() => handleUniversitySelect(uni.id)}
+                          className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
+                            isSelected 
+                              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' 
+                              : 'text-slate-700 hover:bg-indigo-50/70 hover:text-indigo-600'
+                          }`}
+                        >
+                          <span className="flex items-center gap-2 truncate">
+                            <GraduationCap size={14} className={isSelected ? 'text-white' : 'text-slate-400'} />
+                            <span className="truncate text-left">{uni.name} ({uni.shortName})</span>
+                          </span>
+                          {isSelected && <Check size={14} className="text-white shrink-0 ml-2" />}
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-6 text-slate-400 text-xs italic">
+                      Không tìm thấy trường nào khớp...
+                    </div>
+                  )}
+
+                  {/* Divider */}
+                  <div className="border-t border-slate-150 my-1"></div>
+
+                  {/* Custom Pin option */}
+                  <button
+                    type="button"
+                    onClick={() => handleUniversitySelect('custom_pin')}
+                    className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
+                      filters.universityId === 'custom_pin'
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100'
+                        : 'text-slate-700 hover:bg-indigo-50/70 hover:text-indigo-600'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="text-xs">🎯</span>
+                      <span>Ghim điểm tùy ý (Kéo thả ghim)</span>
+                    </span>
+                    {filters.universityId === 'custom_pin' && <Check size={14} className="text-white shrink-0 ml-2" />}
+                  </button>
+
+                  {/* Custom Address option */}
+                  <button
+                    type="button"
+                    onClick={() => handleUniversitySelect('other')}
+                    className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer ${
+                      filters.universityId === 'other'
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100'
+                        : 'text-slate-700 hover:bg-indigo-50/70 hover:text-indigo-600'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="text-xs">📍</span>
+                      <span>Khác (Nhập địa chỉ tự do)</span>
+                    </span>
+                    {filters.universityId === 'other' && <Check size={14} className="text-white shrink-0 ml-2" />}
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         <AnimatePresence mode="wait">
